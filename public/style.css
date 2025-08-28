@@ -636,6 +636,71 @@ body {
     animation: pulse 2s infinite;
 }
 
+/* Analytics controls */
+.analytics-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    align-items: end;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.export-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Detailed statistics */
+.detailed-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.detailed-stats-table th,
+.detailed-stats-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detailed-stats-table th {
+    background: var(--secondary-color);
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.detailed-stats-table tr:hover {
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.stat-highlight {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.detailed-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.stat-item h4 {
+    margin-bottom: 1rem;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .container {

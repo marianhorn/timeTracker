@@ -10,6 +10,8 @@ class TimeTrackerApp {
         this.deadlineData = null;
         this.charts = {};
         this.lastUpdate = null;
+        this.currentPeriod = 'week';
+        this.currentChartGrouping = 'day';
         
         this.init();
     }
@@ -599,51 +601,232 @@ class TimeTrackerApp {
 
     async loadAnalytics() {
         try {
-            const trends = await this.apiCall('/analytics/time-trends/7');
+            // Load data based on current period and grouping
+            const trends = await this.apiCall(`/analytics/time-trends-enhanced?period=${this.currentChartGrouping}&duration=${this.currentPeriod}`);
+            const summary = await this.apiCall(`/analytics/summary?period=${this.currentPeriod}`);
             
-            // Update time chart
-            this.renderTimeChart(trends.timeByDay);
+            // Update summary cards
+            document.getElementById('periodTime').textContent = this.formatTime(summary.period.totalTime);
+            document.getElementById('periodTimeLabel').textContent = this.getPeriodLabel(this.currentPeriod);
+            document.getElementById('productivityScore').textContent = summary.period.averageProductivity;
+            
+            // Update charts
+            this.renderTimeChart(trends.timeByPeriod, trends.period);
             this.renderCategoryChart(trends.categoryBreakdown);
+            
+            // Update detailed statistics
+            this.renderDetailedStats(summary);
             
         } catch (error) {
             console.error('Failed to load analytics:', error);
         }
     }
 
-    renderTimeChart(data) {
+    getPeriodLabel(period) {
+        switch (period) {
+            case 'week': return 'Last Week';
+            case 'month': return 'Last Month';
+            case 'year': return 'Last Year';
+            case 'all': return 'All Time';
+            default: return 'Last Week';
+        }
+    }
+
+    async updateAnalyticsPeriod() {
+        this.currentPeriod = document.getElementById('periodSelect').value;
+        await this.loadAnalytics();
+    }
+
+    async updateChartGrouping() {
+        this.currentChartGrouping = document.getElementById('chartGrouping').value;
+        await this.loadAnalytics();
+    }
+
+    async exportTasks() {
+        try {
+            this.showLoading(true);
+            const response = await fetch(`${this.apiBase}/analytics/export/tasks`);
+            
+            if (!response.ok) {
+                throw new Error('Export failed');
+            }
+            
+            // Create download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tasks-export-${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            this.showNotification('Tasks exported successfully!', 'success');
+        } catch (error) {
+            this.showNotification('Export failed: ' + error.message, 'error');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    async exportTimeEntries() {
+        try {
+            this.showLoading(true);
+            const response = await fetch(`${this.apiBase}/analytics/export/time-entries`);
+            
+            if (!response.ok) {
+                throw new Error('Export failed');
+            }
+            
+            // Create download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `time-entries-export-${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            this.showNotification('Time entries exported successfully!', 'success');
+        } catch (error) {
+            this.showNotification('Export failed: ' + error.message, 'error');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    renderTimeChart(data, period = 'day') {
         const ctx = document.getElementById('timeChart').getContext('2d');
         
         if (this.charts.timeChart) {
             this.charts.timeChart.destroy();
         }
         
+        // Update chart title based on grouping
+        const title = document.getElementById('timeChartTitle');
+        title.textContent = `${period.charAt(0).toUpperCase() + period.slice(1)}ly Time Tracking`;
+        
+        const labels = data.map(d => {
+            if (period === 'week') {
+                return d.period; // e.g., "2024-W10"
+            } else if (period === 'month') {
+                return d.period; // e.g., "2024-03"
+            } else if (period === 'year') {
+                return d.period; // e.g., "2024"
+            } else {
+                return new Date(d.period || d.date).toLocaleDateString();
+            }
+        });
+        
         this.charts.timeChart = new Chart(ctx, {
-            type: 'line',
+            type: period === 'year' ? 'bar' : 'line',
             data: {
-                labels: data.map(d => new Date(d.date).toLocaleDateString()),
+                labels: labels,
                 datasets: [{
                     label: 'Time (minutes)',
-                    data: data.map(d => d.time),
+                    data: data.map(d => d.time || 0),
                     borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    backgroundColor: period === 'year' ? '#3b82f6' : 'rgba(59, 130, 246, 0.1)',
                     tension: 0.4,
-                    fill: true
+                    fill: period !== 'year'
+                }, {
+                    label: 'Tasks Completed',
+                    data: data.map(d => d.tasks || 0),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    yAxisID: 'y1',
+                    type: 'line',
+                    tension: 0.4,
+                    fill: false
                 }]
             },
             options: {
                 responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
                 scales: {
                     y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
                                 return Math.floor(value / 60) + 'h ' + (value % 60) + 'm';
                             }
                         }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        beginAtZero: true,
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return Math.floor(value) + ' tasks';
+                            }
+                        }
                     }
                 }
             }
         });
+    }
+
+    renderDetailedStats(summary) {
+        const container = document.getElementById('detailedStats');
+        
+        const totalHours = Math.floor(summary.period.totalTime / 60);
+        const totalMinutes = summary.period.totalTime % 60;
+        
+        container.innerHTML = `
+            <div class="detailed-stats-grid">
+                <div class="stat-item">
+                    <h4>${this.getPeriodLabel(this.currentPeriod)} Summary</h4>
+                    <table class="detailed-stats-table">
+                        <tr>
+                            <td>Total Time:</td>
+                            <td class="stat-highlight">${totalHours}h ${totalMinutes}m</td>
+                        </tr>
+                        <tr>
+                            <td>Tasks Completed:</td>
+                            <td class="stat-highlight">${summary.period.tasksCompleted}</td>
+                        </tr>
+                        <tr>
+                            <td>Average Productivity:</td>
+                            <td class="stat-highlight">${summary.period.averageProductivity}/100</td>
+                        </tr>
+                        <tr>
+                            <td>Active Tasks:</td>
+                            <td class="stat-highlight">${summary.overall.inProgressTasks}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="stat-item">
+                    <h4>Category Breakdown</h4>
+                    <table class="detailed-stats-table">
+                        ${Object.entries(summary.period.categoryBreakdown).map(([category, time]) => {
+                            const hours = Math.floor(time / 60);
+                            const minutes = time % 60;
+                            return `
+                                <tr>
+                                    <td>${category.charAt(0).toUpperCase() + category.slice(1)}:</td>
+                                    <td class="stat-highlight">${hours}h ${minutes}m</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </table>
+                </div>
+            </div>
+        `;
     }
 
     renderCategoryChart(data) {

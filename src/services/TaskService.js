@@ -241,17 +241,23 @@ class TaskService {
         return this.timeTracker.getActiveTaskId();
     }
 
-    async getProductivityStats(startDate, endDate) {
+    async getProductivityStats(startDate, endDate, period = 'day') {
         const stats = {
             totalTime: 0,
             tasksCompleted: 0,
             productivityScores: [],
             categoryBreakdown: {},
-            dailyBreakdown: []
+            dailyBreakdown: [],
+            weeklyBreakdown: [],
+            monthlyBreakdown: [],
+            period: period
         };
 
         const start = new Date(startDate);
         const end = new Date(endDate);
+        
+        // Group data by period
+        const groupedData = {};
         
         for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
             const dateStr = date.toISOString().split('T')[0];
@@ -261,16 +267,43 @@ class TaskService {
                 const dailyLog = new DailyLog(log);
                 stats.totalTime += dailyLog.totalTime;
                 stats.tasksCompleted += dailyLog.tasksCompleted.length;
-                stats.productivityScores.push({
-                    date: dateStr,
-                    score: dailyLog.getProductivityScore()
-                });
                 
+                // Always add daily data
                 stats.dailyBreakdown.push({
                     date: dateStr,
                     time: dailyLog.totalTime,
-                    tasks: dailyLog.tasksCompleted.length
+                    tasks: dailyLog.tasksCompleted.length,
+                    score: dailyLog.getProductivityScore()
                 });
+
+                // Group by requested period
+                let groupKey;
+                switch (period) {
+                    case 'week':
+                        groupKey = this.getWeekKey(date);
+                        break;
+                    case 'month':
+                        groupKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                        break;
+                    case 'year':
+                        groupKey = `${date.getFullYear()}`;
+                        break;
+                    default: // day
+                        groupKey = dateStr;
+                }
+
+                if (!groupedData[groupKey]) {
+                    groupedData[groupKey] = {
+                        period: groupKey,
+                        time: 0,
+                        tasks: 0,
+                        scores: []
+                    };
+                }
+
+                groupedData[groupKey].time += dailyLog.totalTime;
+                groupedData[groupKey].tasks += dailyLog.tasksCompleted.length;
+                groupedData[groupKey].scores.push(dailyLog.getProductivityScore());
 
                 // Category breakdown
                 for (const workedTask of dailyLog.tasksWorkedOn) {
@@ -283,7 +316,80 @@ class TaskService {
             }
         }
 
+        // Convert grouped data to arrays
+        stats.productivityScores = Object.values(groupedData).map(group => ({
+            period: group.period,
+            score: group.scores.length > 0 ? Math.round(group.scores.reduce((a, b) => a + b, 0) / group.scores.length) : 0,
+            time: group.time,
+            tasks: group.tasks
+        }));
+
+        if (period === 'week') {
+            stats.weeklyBreakdown = stats.productivityScores;
+        } else if (period === 'month') {
+            stats.monthlyBreakdown = stats.productivityScores;
+        }
+
         return stats;
+    }
+
+    getWeekKey(date) {
+        const year = date.getFullYear();
+        const week = this.getWeekNumber(date);
+        return `${year}-W${String(week).padStart(2, '0')}`;
+    }
+
+    getWeekNumber(date) {
+        const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+        const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+    }
+
+    async getAllTimeEntries() {
+        const query = `SELECT 
+            te.*, t.title as task_title, t.category, t.parent_id
+            FROM time_entries te
+            JOIN tasks t ON te.task_id = t.id
+            ORDER BY te.start_time DESC`;
+        return await this.db.all(query);
+    }
+
+    async getAllTasksForExport() {
+        const allTasks = await this.getTasks();
+        return this.flattenTasksForExport(allTasks);
+    }
+
+    flattenTasksForExport(tasks) {
+        let flattened = [];
+        for (const task of tasks) {
+            flattened.push({
+                id: task.id,
+                title: task.title,
+                description: task.description,
+                category: task.category,
+                priority: task.priority,
+                status: task.status,
+                estimatedTime: task.estimatedTime,
+                actualTime: task.actualTime,
+                totalTime: task.totalTime,
+                deadline: task.deadline,
+                isOverdue: task.isOverdue,
+                daysUntilDeadline: task.daysUntilDeadline,
+                parentId: task.parentId,
+                hasSubtasks: task.children && task.children.length > 0,
+                subtaskCount: task.children ? task.children.length : 0,
+                completedSubtasks: task.children ? task.children.filter(c => c.status === 'completed').length : 0,
+                progress: task.progress,
+                createdAt: task.createdAt,
+                updatedAt: task.updatedAt,
+                completedAt: task.completedAt
+            });
+            
+            if (task.children && task.children.length > 0) {
+                flattened = flattened.concat(this.flattenTasksForExport(task.children));
+            }
+        }
+        return flattened;
     }
 }
 
