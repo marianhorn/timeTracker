@@ -6,6 +6,8 @@ class TimeTrackerApp {
         this.currentCategoryFilter = '';
         this.tasks = [];
         this.activeTimer = null;
+        this.activeTaskId = null;
+        this.deadlineData = null;
         this.charts = {};
         
         this.init();
@@ -97,6 +99,8 @@ class TimeTrackerApp {
             this.loadAnalytics();
         } else if (tabName === 'logs') {
             this.loadDailyLog();
+        } else if (tabName === 'deadlines') {
+            this.loadDeadlines();
         }
     }
 
@@ -110,7 +114,7 @@ class TimeTrackerApp {
             category: document.getElementById('taskCategory').value,
             priority: document.getElementById('taskPriority').value,
             estimatedTime: document.getElementById('taskEstimate').value || null,
-            parentId: document.getElementById('taskParent').value || null
+            deadline: document.getElementById('taskDeadline').value || null
         };
 
         try {
@@ -121,6 +125,9 @@ class TimeTrackerApp {
 
             e.target.reset();
             await this.loadTasks();
+            if (this.currentTab === 'deadlines') {
+                await this.loadDeadlines();
+            }
             this.showNotification('Task created successfully!', 'success');
         } catch (error) {
             this.showNotification('Failed to create task', 'error');
@@ -132,7 +139,6 @@ class TimeTrackerApp {
             const tasks = await this.apiCall('/tasks');
             this.tasks = tasks;
             await this.renderTasks();
-            this.updateParentTaskOptions();
         } catch (error) {
             this.showEmptyState('taskList', 'Failed to load tasks');
         }
@@ -157,14 +163,36 @@ class TimeTrackerApp {
     }
 
     renderTask(task) {
-        const timeSpent = this.formatTime(task.actualTime || 0);
+        const timeSpent = this.formatTime(task.totalTime || task.actualTime || 0);
         const estimatedTime = task.estimatedTime ? this.formatTime(task.estimatedTime) : 'Not set';
         const progress = task.progress || 0;
+        const isActive = this.activeTaskId === task.id;
+        
+        let deadlineClasses = '';
+        let deadlineInfo = '';
+        
+        if (task.deadline) {
+            const deadlineDate = new Date(task.deadline);
+            const daysUntil = task.daysUntilDeadline;
+            
+            if (task.isOverdue) {
+                deadlineClasses = 'deadline-overdue';
+                deadlineInfo = `<div class="deadline-info"><i class="fas fa-exclamation-triangle"></i> Overdue by ${Math.abs(daysUntil)} day(s)</div>`;
+            } else if (task.isDueSoon) {
+                deadlineClasses = 'deadline-soon';
+                deadlineInfo = `<div class="deadline-info"><i class="fas fa-clock"></i> Due in ${daysUntil} day(s)</div>`;
+            } else {
+                deadlineInfo = `<div class="deadline-info"><i class="fas fa-calendar"></i> Due ${deadlineDate.toLocaleDateString()}</div>`;
+            }
+        }
         
         return `
-            <div class="task-item priority-${task.priority}" data-task-id="${task.id}">
+            <div class="task-item priority-${task.priority} ${deadlineClasses} ${isActive ? 'task-working' : ''}" data-task-id="${task.id}">
                 <div class="task-header">
-                    <div class="task-title">${task.title}</div>
+                    <div class="task-title">
+                        ${task.title}
+                        ${isActive ? '<span class="working-indicator"><i class="fas fa-play"></i> Working</span>' : ''}
+                    </div>
                     <div class="task-status ${task.status}">${task.status.replace('_', ' ')}</div>
                 </div>
                 
@@ -175,6 +203,8 @@ class TimeTrackerApp {
                     <span><i class="fas fa-clock"></i> ${timeSpent} / ${estimatedTime}</span>
                     <span><i class="fas fa-calendar"></i> ${new Date(task.createdAt).toLocaleDateString()}</span>
                 </div>
+                
+                ${deadlineInfo}
                 
                 ${task.children && task.children.length > 0 ? `
                     <div class="task-progress">
@@ -189,6 +219,35 @@ class TimeTrackerApp {
                     ${this.renderTaskActions(task)}
                 </div>
                 
+                <!-- Subtask Form -->
+                <div id="subtask-form-${task.id}" class="subtask-form">
+                    <h4>Add Subtask</h4>
+                    <form onsubmit="app.handleSubtaskSubmit(event, '${task.id}')">
+                        <div class="form-group">
+                            <input type="text" placeholder="Subtask title" name="title" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <select name="priority">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <input type="date" name="deadline" placeholder="Deadline (optional)">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <textarea name="description" placeholder="Description (optional)" rows="2"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="submit" class="btn btn-primary btn-small">Add Subtask</button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="app.cancelSubtask('${task.id}')">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+                
                 ${task.children && task.children.length > 0 ? `
                     <div class="task-children">
                         ${task.children.map(child => this.renderTask(child)).join('')}
@@ -200,30 +259,26 @@ class TimeTrackerApp {
 
     renderTaskActions(task) {
         const actions = [];
+        const isActive = this.activeTaskId === task.id;
         
         // Time tracking actions
         if (task.status !== 'completed') {
-            if (this.isTaskActive(task.id)) {
-                actions.push(`<button class="btn btn-warning btn-small" onclick="app.pauseTask('${task.id}')"><i class="fas fa-pause"></i> Pause</button>`);
-                actions.push(`<button class="btn btn-error btn-small" onclick="app.stopTask('${task.id}')"><i class="fas fa-stop"></i> Stop</button>`);
-            } else if (this.isTaskPaused(task.id)) {
-                actions.push(`<button class="btn btn-success btn-small" onclick="app.resumeTask('${task.id}')"><i class="fas fa-play"></i> Resume</button>`);
-                actions.push(`<button class="btn btn-error btn-small" onclick="app.stopTask('${task.id}')"><i class="fas fa-stop"></i> Stop</button>`);
+            if (isActive) {
+                actions.push(`<button class="btn btn-error btn-small" onclick="app.stopTask('${task.id}')"><i class="fas fa-stop"></i> Stop Working</button>`);
             } else {
-                actions.push(`<button class="btn btn-success btn-small" onclick="app.startTask('${task.id}')"><i class="fas fa-play"></i> Start</button>`);
+                actions.push(`<button class="btn btn-success btn-small" onclick="app.startTask('${task.id}')"><i class="fas fa-play"></i> Start Working</button>`);
             }
         }
 
         // Status actions
-        if (task.status === 'todo') {
-            actions.push(`<button class="btn btn-primary btn-small" onclick="app.updateTaskStatus('${task.id}', 'in_progress')"><i class="fas fa-play-circle"></i> Start Working</button>`);
-        }
-        
         if (task.status !== 'completed') {
             actions.push(`<button class="btn btn-success btn-small" onclick="app.updateTaskStatus('${task.id}', 'completed')"><i class="fas fa-check"></i> Complete</button>`);
         } else if (task.status === 'completed') {
             actions.push(`<button class="btn btn-secondary btn-small" onclick="app.updateTaskStatus('${task.id}', 'todo')"><i class="fas fa-undo"></i> Reopen</button>`);
         }
+
+        // Subtask action
+        actions.push(`<button class="btn btn-primary btn-small" onclick="app.showSubtaskForm('${task.id}')"><i class="fas fa-plus"></i> Add Subtask</button>`);
 
         // Other actions
         actions.push(`<button class="btn btn-secondary btn-small" onclick="app.showTaskDetails('${task.id}')"><i class="fas fa-eye"></i> Details</button>`);
@@ -260,13 +315,44 @@ class TimeTrackerApp {
         this.renderTasks();
     }
 
-    updateParentTaskOptions() {
-        const select = document.getElementById('taskParent');
-        select.innerHTML = '<option value="">None (Root Task)</option>';
+    showSubtaskForm(taskId) {
+        const form = document.getElementById(`subtask-form-${taskId}`);
+        form.classList.add('show');
+    }
+
+    cancelSubtask(taskId) {
+        const form = document.getElementById(`subtask-form-${taskId}`);
+        form.classList.remove('show');
+        form.querySelector('form').reset();
+    }
+
+    async handleSubtaskSubmit(e, parentId) {
+        e.preventDefault();
         
-        this.tasks.forEach(task => {
-            select.innerHTML += `<option value="${task.id}">${task.title}</option>`;
-        });
+        const formData = new FormData(e.target);
+        const subtaskData = {
+            title: formData.get('title'),
+            description: formData.get('description') || '',
+            priority: formData.get('priority'),
+            deadline: formData.get('deadline') || null,
+            category: this.tasks.find(t => t.id === parentId)?.category || 'general'
+        };
+
+        try {
+            await this.apiCall(`/tasks/${parentId}/subtask`, {
+                method: 'POST',
+                body: JSON.stringify(subtaskData)
+            });
+
+            this.cancelSubtask(parentId);
+            await this.loadTasks();
+            if (this.currentTab === 'deadlines') {
+                await this.loadDeadlines();
+            }
+            this.showNotification('Subtask created successfully!', 'success');
+        } catch (error) {
+            this.showNotification('Failed to create subtask', 'error');
+        }
     }
 
     async startTask(taskId) {
@@ -274,31 +360,12 @@ class TimeTrackerApp {
             await this.apiCall(`/tasks/${taskId}/start`, { method: 'POST' });
             await this.loadTasks();
             await this.updateActiveTimer();
+            if (this.currentTab === 'deadlines') {
+                await this.loadDeadlines();
+            }
             this.showNotification('Time tracking started!', 'success');
         } catch (error) {
             this.showNotification('Failed to start time tracking', 'error');
-        }
-    }
-
-    async pauseTask(taskId) {
-        try {
-            await this.apiCall(`/tasks/${taskId}/pause`, { method: 'POST' });
-            await this.loadTasks();
-            await this.updateActiveTimer();
-            this.showNotification('Time tracking paused', 'warning');
-        } catch (error) {
-            this.showNotification('Failed to pause time tracking', 'error');
-        }
-    }
-
-    async resumeTask(taskId) {
-        try {
-            await this.apiCall(`/tasks/${taskId}/resume`, { method: 'POST' });
-            await this.loadTasks();
-            await this.updateActiveTimer();
-            this.showNotification('Time tracking resumed!', 'success');
-        } catch (error) {
-            this.showNotification('Failed to resume time tracking', 'error');
         }
     }
 
@@ -307,6 +374,9 @@ class TimeTrackerApp {
             await this.apiCall(`/tasks/${taskId}/stop`, { method: 'POST' });
             await this.loadTasks();
             await this.updateActiveTimer();
+            if (this.currentTab === 'deadlines') {
+                await this.loadDeadlines();
+            }
             this.showNotification('Time tracking stopped', 'success');
         } catch (error) {
             this.showNotification('Failed to stop time tracking', 'error');
@@ -320,6 +390,9 @@ class TimeTrackerApp {
                 body: JSON.stringify({ status })
             });
             await this.loadTasks();
+            if (this.currentTab === 'deadlines') {
+                await this.loadDeadlines();
+            }
             this.showNotification(`Task ${status.replace('_', ' ')}!`, 'success');
         } catch (error) {
             this.showNotification('Failed to update task status', 'error');
@@ -334,6 +407,9 @@ class TimeTrackerApp {
         try {
             await this.apiCall(`/tasks/${taskId}`, { method: 'DELETE' });
             await this.loadTasks();
+            if (this.currentTab === 'deadlines') {
+                await this.loadDeadlines();
+            }
             this.showNotification('Task deleted', 'success');
         } catch (error) {
             this.showNotification('Failed to delete task', 'error');
@@ -342,6 +418,9 @@ class TimeTrackerApp {
 
     async updateActiveTimer() {
         try {
+            const deadlineData = await this.apiCall('/analytics/deadlines');
+            this.activeTaskId = deadlineData.activeTaskId;
+            
             const activeEntries = await this.apiCall('/analytics/active');
             const timerElement = document.getElementById('activeTimer');
             const timerText = document.getElementById('timerText');
@@ -352,10 +431,85 @@ class TimeTrackerApp {
                 timerText.textContent = this.formatTime(entry.duration);
             } else {
                 timerElement.style.display = 'none';
+                this.activeTaskId = null;
+            }
+            
+            // Re-render tasks if they're currently displayed
+            if (this.currentTab === 'tasks' && this.tasks.length > 0) {
+                await this.renderTasks();
             }
         } catch (error) {
             console.error('Failed to update active timer:', error);
         }
+    }
+
+    async loadDeadlines() {
+        try {
+            const deadlineData = await this.apiCall('/analytics/deadlines');
+            this.deadlineData = deadlineData;
+            this.activeTaskId = deadlineData.activeTaskId;
+            
+            this.renderDeadlineTasks('overdueTasks', deadlineData.overdue, 'No overdue tasks! 🎉');
+            this.renderDeadlineTasks('dueTomorrowTasks', deadlineData.dueTomorrow, 'Nothing due tomorrow');
+            this.renderDeadlineTasks('dueThisWeekTasks', deadlineData.dueThisWeek, 'Nothing due this week');
+            
+        } catch (error) {
+            console.error('Failed to load deadlines:', error);
+            document.getElementById('overdueTasks').innerHTML = '<p>Failed to load deadline data</p>';
+        }
+    }
+
+    renderDeadlineTasks(containerId, tasks, emptyMessage) {
+        const container = document.getElementById(containerId);
+        
+        if (!tasks || tasks.length === 0) {
+            container.innerHTML = `<div class="empty-state"><p>${emptyMessage}</p></div>`;
+            return;
+        }
+        
+        container.innerHTML = tasks.map(task => this.renderSimpleTask(task)).join('');
+    }
+
+    renderSimpleTask(task) {
+        const isActive = this.activeTaskId === task.id;
+        const timeSpent = this.formatTime(task.totalTime || task.actualTime || 0);
+        
+        let deadlineInfo = '';
+        if (task.deadline) {
+            const deadlineDate = new Date(task.deadline);
+            const daysUntil = task.daysUntilDeadline;
+            
+            if (task.isOverdue) {
+                deadlineInfo = `<small class="text-error">Overdue by ${Math.abs(daysUntil)} day(s)</small>`;
+            } else if (task.isDueSoon) {
+                deadlineInfo = `<small class="text-warning">Due in ${daysUntil} day(s)</small>`;
+            } else {
+                deadlineInfo = `<small>Due ${deadlineDate.toLocaleDateString()}</small>`;
+            }
+        }
+        
+        return `
+            <div class="task-log-item ${isActive ? 'task-working' : ''}">
+                <div>
+                    <strong>${task.title}</strong>
+                    ${isActive ? '<span class="working-indicator"><i class="fas fa-play"></i></span>' : ''}
+                    <br>
+                    <small>${task.category} • ${timeSpent}</small>
+                    ${deadlineInfo ? '<br>' + deadlineInfo : ''}
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    ${task.status !== 'completed' ? (
+                        isActive 
+                            ? `<button class="btn btn-error btn-small" onclick="app.stopTask('${task.id}')"><i class="fas fa-stop"></i></button>`
+                            : `<button class="btn btn-success btn-small" onclick="app.startTask('${task.id}')"><i class="fas fa-play"></i></button>`
+                    ) : ''}
+                    ${task.status !== 'completed' 
+                        ? `<button class="btn btn-success btn-small" onclick="app.updateTaskStatus('${task.id}', 'completed')"><i class="fas fa-check"></i></button>`
+                        : `<span class="text-success"><i class="fas fa-check-circle"></i></span>`
+                    }
+                </div>
+            </div>
+        `;
     }
 
     async loadSummary() {
@@ -547,18 +701,9 @@ class TimeTrackerApp {
         }
     }
 
-    isTaskActive(taskId) {
-        // This would be set from the active entries API call
-        return false; // Placeholder
-    }
-
-    isTaskPaused(taskId) {
-        // This would be set from the active entries API call
-        return false; // Placeholder
-    }
 
     showTaskDetails(taskId) {
-        const task = this.tasks.find(t => t.id === taskId);
+        const task = this.findTaskById(taskId);
         if (!task) return;
 
         const modal = document.getElementById('taskModal');
@@ -572,14 +717,32 @@ class TimeTrackerApp {
                 <p><strong>Category:</strong> ${task.category}</p>
                 <p><strong>Priority:</strong> ${task.priority}</p>
                 <p><strong>Status:</strong> ${task.status}</p>
-                <p><strong>Time Spent:</strong> ${this.formatTime(task.actualTime)}</p>
+                <p><strong>Time Spent:</strong> ${this.formatTime(task.totalTime || task.actualTime || 0)}</p>
                 <p><strong>Estimated Time:</strong> ${task.estimatedTime ? this.formatTime(task.estimatedTime) : 'Not set'}</p>
+                ${task.deadline ? `<p><strong>Deadline:</strong> ${new Date(task.deadline).toLocaleDateString()}</p>` : ''}
+                ${task.deadline && task.daysUntilDeadline !== null ? `<p><strong>Days Until Deadline:</strong> ${task.daysUntilDeadline}</p>` : ''}
                 <p><strong>Created:</strong> ${new Date(task.createdAt).toLocaleString()}</p>
                 ${task.completedAt ? `<p><strong>Completed:</strong> ${new Date(task.completedAt).toLocaleString()}</p>` : ''}
+                ${task.children && task.children.length > 0 ? `<p><strong>Subtasks:</strong> ${task.children.length} (${task.children.filter(c => c.status === 'completed').length} completed)</p>` : ''}
             </div>
         `;
         
         modal.classList.add('show');
+    }
+
+    findTaskById(taskId) {
+        const searchInTasks = (tasks) => {
+            for (const task of tasks) {
+                if (task.id === taskId) return task;
+                if (task.children) {
+                    const found = searchInTasks(task.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+        
+        return searchInTasks(this.tasks);
     }
 
     closeModal() {

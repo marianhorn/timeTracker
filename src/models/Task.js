@@ -11,6 +11,7 @@ class Task {
         this.status = data.status || 'todo'; // todo, in_progress, completed
         this.estimatedTime = data.estimatedTime || null; // in minutes
         this.actualTime = data.actualTime || 0; // in minutes
+        this.deadline = data.deadline || null; // ISO date string
         this.createdAt = data.createdAt || new Date().toISOString();
         this.updatedAt = data.updatedAt || new Date().toISOString();
         this.completedAt = data.completedAt || null;
@@ -57,6 +58,24 @@ class Task {
         return total;
     }
 
+    getDaysUntilDeadline() {
+        if (!this.deadline) return null;
+        const today = new Date();
+        const deadline = new Date(this.deadline);
+        const diffTime = deadline - today;
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    isOverdue() {
+        if (!this.deadline || this.status === 'completed') return false;
+        return new Date() > new Date(this.deadline);
+    }
+
+    isDueSoon(days = 7) {
+        const daysUntil = this.getDaysUntilDeadline();
+        return daysUntil !== null && daysUntil >= 0 && daysUntil <= days;
+    }
+
     toJSON() {
         return {
             id: this.id,
@@ -68,13 +87,17 @@ class Task {
             status: this.status,
             estimatedTime: this.estimatedTime,
             actualTime: this.actualTime,
+            deadline: this.deadline,
             createdAt: this.createdAt,
             updatedAt: this.updatedAt,
             completedAt: this.completedAt,
             tags: this.tags,
             children: this.children.map(child => child.toJSON()),
             progress: this.getProgress(),
-            totalTime: this.getTotalTime()
+            totalTime: this.getTotalTime(),
+            daysUntilDeadline: this.getDaysUntilDeadline(),
+            isOverdue: this.isOverdue(),
+            isDueSoon: this.isDueSoon()
         };
     }
 }

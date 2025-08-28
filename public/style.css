@@ -562,6 +562,80 @@ body {
 .category-methodology { background: #fce7f3; color: #be185d; }
 .category-general { background: #f3f4f6; color: #374151; }
 
+/* Text colors */
+.text-error { color: var(--error-color); }
+.text-warning { color: var(--warning-color); }
+.text-success { color: var(--success-color); }
+.text-info { color: var(--primary-color); }
+
+/* Deadline indicators */
+.deadline-overdue {
+    border-left: 4px solid var(--error-color);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.deadline-soon {
+    border-left: 4px solid var(--warning-color);
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.deadline-info {
+    font-size: 0.875rem;
+    color: var(--text-light);
+    margin-top: 0.5rem;
+}
+
+.deadline-overdue .deadline-info {
+    color: var(--error-color);
+    font-weight: 500;
+}
+
+.deadline-soon .deadline-info {
+    color: var(--warning-color);
+    font-weight: 500;
+}
+
+/* Subtask creation */
+.subtask-form {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--secondary-color);
+    border-radius: 0.5rem;
+    border: 2px dashed var(--border-color);
+}
+
+.subtask-form.show {
+    display: block;
+}
+
+.subtask-form .form-row {
+    margin-bottom: 0.5rem;
+}
+
+.subtask-form .form-group {
+    margin-bottom: 0.5rem;
+}
+
+/* Task working indicator */
+.task-working {
+    border-left: 4px solid var(--success-color);
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.working-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--success-color);
+    font-weight: 500;
+}
+
+.working-indicator i {
+    animation: pulse 2s infinite;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .container {

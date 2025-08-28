@@ -41,6 +41,7 @@ class Database {
                 status TEXT DEFAULT 'todo',
                 estimated_time INTEGER,
                 actual_time INTEGER DEFAULT 0,
+                deadline TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 completed_at TEXT,
@@ -137,12 +138,12 @@ class Database {
     async createTask(task) {
         const query = `INSERT INTO tasks 
             (id, title, description, parent_id, category, priority, status, 
-             estimated_time, actual_time, created_at, updated_at, completed_at, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+             estimated_time, actual_time, deadline, created_at, updated_at, completed_at, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         
         const params = [
             task.id, task.title, task.description, task.parentId, task.category,
-            task.priority, task.status, task.estimatedTime, task.actualTime,
+            task.priority, task.status, task.estimatedTime, task.actualTime, task.deadline,
             task.createdAt, task.updatedAt, task.completedAt, JSON.stringify(task.tags)
         ];
         
@@ -152,12 +153,12 @@ class Database {
     async updateTask(task) {
         const query = `UPDATE tasks SET 
             title = ?, description = ?, category = ?, priority = ?, status = ?,
-            estimated_time = ?, actual_time = ?, updated_at = ?, completed_at = ?, tags = ?
+            estimated_time = ?, actual_time = ?, deadline = ?, updated_at = ?, completed_at = ?, tags = ?
             WHERE id = ?`;
         
         const params = [
             task.title, task.description, task.category, task.priority, task.status,
-            task.estimatedTime, task.actualTime, task.updatedAt, task.completedAt,
+            task.estimatedTime, task.actualTime, task.deadline, task.updatedAt, task.completedAt,
             JSON.stringify(task.tags), task.id
         ];
         
@@ -197,6 +198,7 @@ class Database {
             status: row.status,
             estimatedTime: row.estimated_time,
             actualTime: row.actual_time,
+            deadline: row.deadline,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             completedAt: row.completed_at,

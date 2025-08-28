@@ -97,4 +97,24 @@ router.get('/time-trends/:days', async (req, res) => {
     }
 });
 
+// GET /api/analytics/deadlines - Get deadline overview
+router.get('/deadlines', async (req, res) => {
+    try {
+        const [overdue, dueTomorrow, dueThisWeek] = await Promise.all([
+            req.app.locals.taskService.getOverdueTasks(),
+            req.app.locals.taskService.getTasksDueTomorrow(),
+            req.app.locals.taskService.getTasksDueThisWeek()
+        ]);
+        
+        res.json({
+            overdue: overdue.map(task => task.toJSON()),
+            dueTomorrow: dueTomorrow.map(task => task.toJSON()),
+            dueThisWeek: dueThisWeek.map(task => task.toJSON()),
+            activeTaskId: await req.app.locals.taskService.getActiveTaskId()
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

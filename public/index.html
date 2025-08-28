@@ -19,6 +19,9 @@
                 <button class="nav-tab active" data-tab="tasks">
                     <i class="fas fa-tasks"></i> Tasks
                 </button>
+                <button class="nav-tab" data-tab="deadlines">
+                    <i class="fas fa-calendar-exclamation"></i> Deadlines
+                </button>
                 <button class="nav-tab" data-tab="analytics">
                     <i class="fas fa-chart-bar"></i> Analytics
                 </button>
@@ -76,15 +79,18 @@
                                     <input type="number" id="taskEstimate" min="0">
                                 </div>
                             </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="taskDeadline">Deadline (optional)</label>
+                                    <input type="date" id="taskDeadline">
+                                </div>
+                                <div class="form-group">
+                                    <!-- Empty for spacing -->
+                                </div>
+                            </div>
                             <div class="form-group">
                                 <label for="taskDescription">Description</label>
                                 <textarea id="taskDescription" rows="3"></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label for="taskParent">Parent Task</label>
-                                <select id="taskParent">
-                                    <option value="">None (Root Task)</option>
-                                </select>
                             </div>
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-plus"></i> Create Task
@@ -113,6 +119,47 @@
                 <!-- Task List -->
                 <div id="taskList" class="task-list">
                     <!-- Tasks will be dynamically loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Deadlines Tab -->
+        <div id="deadlines-tab" class="tab-content">
+            <div class="container">
+                <!-- Overdue Tasks -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-exclamation-triangle text-error"></i> Overdue Tasks</h2>
+                    </div>
+                    <div class="card-content">
+                        <div id="overdueTasks">
+                            <!-- Overdue tasks will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Due Tomorrow -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-calendar-day text-warning"></i> Due Tomorrow</h2>
+                    </div>
+                    <div class="card-content">
+                        <div id="dueTomorrowTasks">
+                            <!-- Due tomorrow tasks will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Due This Week -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-calendar-week text-info"></i> Due This Week</h2>
+                    </div>
+                    <div class="card-content">
+                        <div id="dueThisWeekTasks">
+                            <!-- Due this week tasks will be loaded here -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

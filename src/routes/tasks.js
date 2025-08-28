@@ -135,4 +135,15 @@ router.get('/status/:status', async (req, res) => {
     }
 });
 
+// POST /api/tasks/:id/subtask - Create subtask for a parent task
+router.post('/:id/subtask', async (req, res) => {
+    try {
+        const subtaskData = { ...req.body, parentId: req.params.id };
+        const subtask = await req.app.locals.taskService.createTask(subtaskData);
+        res.status(201).json(subtask.toJSON());
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 module.exports = router;

@@ -96,19 +96,32 @@ class TaskService {
             // Save time entry to database
             await this.db.createTimeEntry(timeEntry);
             
-            // Update task's actual time
-            const task = await this.db.getTask(taskId);
-            if (task) {
-                task.actualTime = (task.actualTime || 0) + timeEntry.duration;
-                task.updatedAt = new Date().toISOString();
-                await this.db.updateTask(new Task(task));
-            }
+            // Update task's actual time and propagate to parents
+            await this.updateTaskTimeAndPropagate(taskId, timeEntry.duration);
 
+            // Get task for daily log
+            const task = await this.db.getTask(taskId);
+            
             // Update daily log
             await this.updateDailyLog(timeEntry.date, taskId, task.title, timeEntry.duration);
         }
 
         return timeEntry;
+    }
+
+    async updateTaskTimeAndPropagate(taskId, timeSpent) {
+        // Update the task's actual time
+        const task = await this.db.getTask(taskId);
+        if (task) {
+            task.actualTime = (task.actualTime || 0) + timeSpent;
+            task.updatedAt = new Date().toISOString();
+            await this.db.updateTask(new Task(task));
+
+            // If task has a parent, also update parent's time
+            if (task.parentId) {
+                await this.updateTaskTimeAndPropagate(task.parentId, timeSpent);
+            }
+        }
     }
 
     async getActiveTimeEntries() {
@@ -178,6 +191,54 @@ class TaskService {
         // Get all root tasks (no parent) and build hierarchy
         const rootTasks = await this.getTasks(null);
         return rootTasks;
+    }
+
+    async getTasksDueTomorrow() {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        
+        const allTasks = await this.getTasks();
+        return this.flattenTasks(allTasks).filter(task => 
+            task.deadline === tomorrowStr && task.status !== 'completed'
+        );
+    }
+
+    async getTasksDueThisWeek() {
+        const today = new Date();
+        const nextWeek = new Date();
+        nextWeek.setDate(today.getDate() + 7);
+        
+        const allTasks = await this.getTasks();
+        return this.flattenTasks(allTasks).filter(task => {
+            if (!task.deadline || task.status === 'completed') return false;
+            const taskDate = new Date(task.deadline);
+            return taskDate >= today && taskDate <= nextWeek;
+        });
+    }
+
+    async getOverdueTasks() {
+        const today = new Date();
+        const allTasks = await this.getTasks();
+        return this.flattenTasks(allTasks).filter(task => {
+            if (!task.deadline || task.status === 'completed') return false;
+            return new Date(task.deadline) < today;
+        });
+    }
+
+    flattenTasks(tasks) {
+        let flattened = [];
+        for (const task of tasks) {
+            flattened.push(task);
+            if (task.children && task.children.length > 0) {
+                flattened = flattened.concat(this.flattenTasks(task.children));
+            }
+        }
+        return flattened;
+    }
+
+    async getActiveTaskId() {
+        return this.timeTracker.getActiveTaskId();
     }
 
     async getProductivityStats(startDate, endDate) {

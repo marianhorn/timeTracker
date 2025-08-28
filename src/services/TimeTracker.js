@@ -9,10 +9,8 @@ class TimeTracker {
     }
 
     startTracking(taskId, description = '') {
-        // Stop any existing tracking for this task
-        if (this.activeTimeEntries.has(taskId)) {
-            this.stopTracking(taskId);
-        }
+        // Stop ALL existing tracking (only one active session allowed)
+        this.stopAllTracking();
 
         const timeEntry = new TimeEntry({
             taskId,
@@ -94,9 +92,23 @@ class TimeTracker {
             entry.stop();
             this.stopTimer(taskId);
             stoppedEntries.push(entry);
+            
+            // Trigger callback for each stopped entry
+            if (this.onTimeUpdate) {
+                this.onTimeUpdate(taskId, entry.duration);
+            }
         }
         this.activeTimeEntries.clear();
         return stoppedEntries;
+    }
+
+    getActiveTaskId() {
+        for (const [taskId, entry] of this.activeTimeEntries) {
+            if (entry.isActive()) {
+                return taskId;
+            }
+        }
+        return null;
     }
 
     startTimer(taskId) {
