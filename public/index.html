@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Tracker - Master's Thesis Assistant</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <i class="fas fa-clock"></i>
+                <h1>Time Tracker</h1>
+            </div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="tasks">
+                    <i class="fas fa-tasks"></i> Tasks
+                </button>
+                <button class="nav-tab" data-tab="analytics">
+                    <i class="fas fa-chart-bar"></i> Analytics
+                </button>
+                <button class="nav-tab" data-tab="logs">
+                    <i class="fas fa-book"></i> Daily Logs
+                </button>
+            </div>
+            <div class="active-timer" id="activeTimer" style="display: none;">
+                <i class="fas fa-play-circle"></i>
+                <span id="timerText">00:00</span>
+            </div>
+        </nav>
+
+        <!-- Tasks Tab -->
+        <div id="tasks-tab" class="tab-content active">
+            <div class="container">
+                <!-- Task Creation -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-plus"></i> Create New Task</h2>
+                        <button class="btn btn-collapse" onclick="toggleCard(this)">
+                            <i class="fas fa-chevron-up"></i>
+                        </button>
+                    </div>
+                    <div class="card-content">
+                        <form id="taskForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="taskTitle">Title *</label>
+                                    <input type="text" id="taskTitle" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="taskCategory">Category</label>
+                                    <select id="taskCategory">
+                                        <option value="literature">Literature Review</option>
+                                        <option value="writing">Writing</option>
+                                        <option value="research">Research</option>
+                                        <option value="analysis">Analysis</option>
+                                        <option value="methodology">Methodology</option>
+                                        <option value="general">General</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="taskPriority">Priority</label>
+                                    <select id="taskPriority">
+                                        <option value="low">Low</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="taskEstimate">Estimated Time (minutes)</label>
+                                    <input type="number" id="taskEstimate" min="0">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="taskDescription">Description</label>
+                                <textarea id="taskDescription" rows="3"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="taskParent">Parent Task</label>
+                                <select id="taskParent">
+                                    <option value="">None (Root Task)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Create Task
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Task Filters -->
+                <div class="filters">
+                    <button class="btn btn-filter active" data-filter="all">All</button>
+                    <button class="btn btn-filter" data-filter="todo">To Do</button>
+                    <button class="btn btn-filter" data-filter="in_progress">In Progress</button>
+                    <button class="btn btn-filter" data-filter="completed">Completed</button>
+                    <select id="categoryFilter" class="filter-select">
+                        <option value="">All Categories</option>
+                        <option value="literature">Literature Review</option>
+                        <option value="writing">Writing</option>
+                        <option value="research">Research</option>
+                        <option value="analysis">Analysis</option>
+                        <option value="methodology">Methodology</option>
+                        <option value="general">General</option>
+                    </select>
+                </div>
+
+                <!-- Task List -->
+                <div id="taskList" class="task-list">
+                    <!-- Tasks will be dynamically loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics-tab" class="tab-content">
+            <div class="container">
+                <!-- Summary Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="todayTime">0h 0m</h3>
+                            <p>Today's Time</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="todayTasks">0</h3>
+                            <p>Tasks Completed Today</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="weekTime">0h 0m</h3>
+                            <p>This Week</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="productivityScore">0</h3>
+                            <p>Productivity Score</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>Daily Time Tracking</h3>
+                        <canvas id="timeChart" width="400" height="200"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Category Breakdown</h3>
+                        <canvas id="categoryChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Logs Tab -->
+        <div id="logs-tab" class="tab-content">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-calendar"></i> Daily Logs</h2>
+                        <input type="date" id="logDate" class="date-picker">
+                    </div>
+                    <div class="card-content">
+                        <div id="dailyLogContent">
+                            <!-- Daily log content will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Task Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Modal content will be dynamically loaded -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
