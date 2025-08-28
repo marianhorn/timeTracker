@@ -69,12 +69,25 @@ if ps -p $SERVER_PID > /dev/null; then
     
     # Detect OS and open browser accordingly
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if command -v xdg-open &> /dev/null; then
-            xdg-open http://localhost:3000
-        elif command -v gnome-open &> /dev/null; then
-            gnome-open http://localhost:3000
+        # Check if we're in WSL (Windows Subsystem for Linux)
+        if grep -qi microsoft /proc/version 2>/dev/null; then
+            # WSL detected - use Windows commands to open browser
+            if command -v cmd.exe &> /dev/null; then
+                cmd.exe /c start http://localhost:3000 2>/dev/null
+            elif command -v wslview &> /dev/null; then
+                wslview http://localhost:3000 2>/dev/null
+            else
+                echo "📝 WSL detected. Please open http://localhost:3000 in your Windows browser"
+            fi
         else
-            echo "📝 Please open http://localhost:3000 in your browser"
+            # Regular Linux
+            if command -v xdg-open &> /dev/null; then
+                xdg-open http://localhost:3000
+            elif command -v gnome-open &> /dev/null; then
+                gnome-open http://localhost:3000
+            else
+                echo "📝 Please open http://localhost:3000 in your browser"
+            fi
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         open http://localhost:3000
