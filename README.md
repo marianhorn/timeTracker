@@ -1,43 +1,78 @@
 # Time Tracker - Master's Thesis Assistant
 
-A comprehensive hierarchical time tracking system designed specifically for managing master's thesis work and university tasks. This application provides a complete solution for task management, time tracking, and productivity analysis with a focus on academic work organization.
+A comprehensive hierarchical time tracking system designed specifically for managing master's thesis work and university tasks. This application provides a complete solution for task management, time tracking, productivity analysis, and data export with a focus on academic work organization.
 
-## 🎯 Features
+## 🎯 Key Features
 
-### Task Management
-- **Hierarchical Task Structure**: Organize tasks in a tree-like structure with parent-child relationships
-- **Multiple Categories**: Literature Review, Writing, Research, Analysis, Methodology, and General
-- **Priority Levels**: High, Medium, and Low priority task organization
-- **Status Tracking**: Todo, In Progress, and Completed task states
-- **Time Estimation**: Set estimated time for tasks and track actual time spent
+### 📋 Hierarchical Task Management
+- **Tree Structure**: Organize tasks with unlimited parent-child relationships
+- **Smart Subtask Creation**: Add subtasks directly from parent tasks (no dropdown confusion)
+- **Category System**: Literature Review, Writing, Research, Analysis, Methodology, General
+- **Priority Management**: High, Medium, Low priority with visual indicators  
+- **Status Tracking**: Todo, In Progress, Completed with automatic transitions
+- **Deadline Management**: Optional deadlines with overdue detection and alerts
+- **Time Estimation**: Set estimated vs actual time tracking with progress bars
 
-### Time Tracking
-- **Start/Stop/Pause**: Full control over time tracking sessions
-- **Real-time Timer**: Live timer display showing current active work session
-- **Automatic Logging**: All time entries are automatically saved with task associations
-- **Multiple Task Support**: Track time across different tasks (one active at a time)
+### ⏱️ Advanced Time Tracking
+- **Single Active Session**: Only one task can be tracked at a time (prevents confusion)
+- **Start/Stop Control**: Clear "Start Working" and "Stop Working" buttons per task
+- **Live Updates**: Real-time UI updates across all tabs and views
+- **Parent Time Accumulation**: Subtask time automatically rolls up to parent tasks  
+- **Visual Indicators**: Active tasks highlighted with green borders and "Working" badges
+- **Automatic Daily Logging**: All work sessions saved with comprehensive metadata
 
-### Daily Logging
-- **Automatic Daily Summaries**: Comprehensive daily work logs
-- **Task Completion Tracking**: Record of all tasks completed each day
-- **Time Breakdown**: See exactly how time was distributed across tasks
-- **Personal Notes**: Add daily reflections and notes
-- **Productivity Scoring**: Algorithmic productivity score based on time and tasks
+### 📊 Professional Analytics Dashboard
+- **Multiple Time Periods**: Last Week, Month, Year, or All Time analysis
+- **Flexible Grouping**: View data by Daily, Weekly, or Monthly periods
+- **Interactive Charts**: Dual-axis charts showing time + task completion
+- **Category Breakdown**: Visual pie charts and detailed time distribution  
+- **Productivity Scoring**: Algorithm-based productivity metrics and trends
+- **Detailed Statistics**: Comprehensive tables with period summaries
 
-### Analytics & Visualization
-- **Interactive Charts**: Visual representation of work patterns using Chart.js
-- **Time Trends**: Track productivity patterns over time
-- **Category Analysis**: See time distribution across different work categories
-- **Weekly/Monthly Views**: Aggregate data for longer-term analysis
-- **Filtering Options**: Filter data by date range, category, or task status
+### 🚨 Deadline Management
+- **Deadline Overview Tab**: Dedicated view for deadline management
+- **Smart Categorization**: Overdue, Due Tomorrow, Due This Week sections
+- **Visual Warnings**: Color-coded deadline indicators (red=overdue, orange=soon)
+- **Quick Actions**: Start/stop work and complete tasks directly from deadline view
+
+### 📄 Excel Data Export  
+- **Tasks Export**: Complete task database with hierarchy, deadlines, and progress
+- **Time Entries Export**: Detailed work logs with daily summaries (multi-sheet)
+- **Professional Format**: Ready for thesis progress reports and academic analysis
+- **Smart Calculations**: Automatic time conversions, productivity metrics
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js (v14 or higher)
+- Node.js (v14 or higher) - [Download here](https://nodejs.org/)
 - npm (comes with Node.js)
 
-### Installation
+### Easy Installation & Startup
+
+#### Option 1: Automated Scripts (Recommended)
+
+**Linux/Mac:**
+```bash
+# Make scripts executable (one-time setup)
+chmod +x start.sh stop.sh
+
+# Start Time Tracker (installs dependencies, starts server, opens browser)
+./start.sh
+
+# Stop Time Tracker when done
+./stop.sh
+```
+
+**Windows:**
+```cmd
+REM Start Time Tracker (installs dependencies, starts server, opens browser)
+start.bat
+
+REM Stop Time Tracker when done  
+stop.bat
+```
+
+#### Option 2: Manual Installation
 
 1. **Clone or download the project**
    ```bash
@@ -62,6 +97,12 @@ A comprehensive hierarchical time tracking system designed specifically for mana
 For development with automatic restart on file changes:
 ```bash
 npm run dev
+```
+
+### Reset Database
+To start with a clean database:
+```bash
+npm run reset
 ```
 
 ## 📁 Project Structure
@@ -95,24 +136,32 @@ timeTracker/
 
 ## 🖥️ User Interface
 
-### Tasks Tab
-- **Task Creation Form**: Create new tasks with all necessary metadata
-- **Hierarchical Task List**: Visual tree structure showing parent-child relationships
-- **Quick Actions**: Start/pause/stop time tracking directly from task list
-- **Status Management**: Update task status with single click
-- **Filtering Options**: Filter by status, category, or search terms
+### 📋 Tasks Tab
+- **Smart Task Creation**: Create tasks with deadlines, categories, priorities
+- **Hierarchical Display**: Visual tree structure with expandable parent-child relationships
+- **Inline Subtask Creation**: Add subtasks directly with "Add Subtask" buttons (no confusing dropdowns)
+- **Visual Status Tracking**: Color-coded priority borders, deadline warnings, working indicators
+- **One-Click Actions**: Start/stop work, complete tasks, manage status directly from task cards
 
-### Analytics Tab
-- **Summary Cards**: Key metrics at a glance (today's time, tasks completed, etc.)
-- **Time Trends Chart**: Line chart showing daily time investment
-- **Category Breakdown**: Doughnut chart showing time distribution by category
-- **Productivity Metrics**: Track productivity patterns over time
+### 🚨 Deadlines Tab  
+- **Overdue Tasks**: Red-highlighted tasks past their deadline with day counts
+- **Due Tomorrow**: Orange-highlighted tasks requiring immediate attention
+- **Due This Week**: Blue-highlighted tasks needing planning within 7 days
+- **Quick Actions**: Start work or complete tasks directly from deadline overview
 
-### Daily Logs Tab
-- **Date Navigation**: Browse logs for any date
-- **Daily Summary**: Time spent, tasks completed, productivity score
-- **Task Lists**: Detailed view of completed and worked-on tasks
-- **Personal Notes**: Add and edit daily reflections
+### 📊 Analytics Tab
+- **Period Controls**: Switch between Last Week, Month, Year, or All Time analysis
+- **Chart Grouping**: View data by Daily, Weekly, or Monthly aggregation
+- **Interactive Charts**: Dual-axis line/bar charts showing time AND task completion
+- **Export Controls**: One-click Excel export for Tasks and Time Entries
+- **Detailed Statistics**: Professional tables with category breakdowns and productivity scores
+
+### 📖 Daily Logs Tab
+- **Date Navigation**: Browse any date with calendar picker
+- **Daily Summaries**: Time worked, tasks completed, productivity score
+- **Task Lists**: Separate views for completed vs worked-on tasks
+- **Personal Notes**: Add reflections and notes for each day
+- **Real-time Updates**: Logs update automatically as you work
 
 ## 🔧 Configuration
 
@@ -182,22 +231,30 @@ The application uses SQLite for data storage, creating the database automaticall
 
 ## 🔗 API Endpoints
 
-### Tasks
-- `GET /api/tasks` - Get all tasks
-- `GET /api/tasks/:id` - Get specific task
+### Task Management
+- `GET /api/tasks` - Get all tasks with hierarchy
+- `GET /api/tasks/:id` - Get specific task with children
 - `POST /api/tasks` - Create new task
+- `POST /api/tasks/:id/subtask` - Create subtask for parent
 - `PUT /api/tasks/:id` - Update task
-- `DELETE /api/tasks/:id` - Delete task
-- `POST /api/tasks/:id/start` - Start time tracking
-- `POST /api/tasks/:id/pause` - Pause time tracking
-- `POST /api/tasks/:id/resume` - Resume time tracking
-- `POST /api/tasks/:id/stop` - Stop time tracking
+- `DELETE /api/tasks/:id` - Delete task (and children)
 
-### Analytics
-- `GET /api/analytics/active` - Get active time entries
-- `GET /api/analytics/productivity/:startDate/:endDate` - Get productivity stats
-- `GET /api/analytics/summary` - Get overall summary
-- `GET /api/analytics/time-trends/:days` - Get time trends
+### Time Tracking  
+- `POST /api/tasks/:id/start` - Start time tracking (stops others)
+- `POST /api/tasks/:id/stop` - Stop time tracking
+- `GET /api/analytics/active` - Get currently active time entries
+
+### Analytics & Reporting
+- `GET /api/analytics/summary?period=week|month|year|all` - Flexible summary stats
+- `GET /api/analytics/time-trends-enhanced?period=day|week|month&duration=week|month|year|all` - Advanced time trends
+- `GET /api/analytics/productivity?startDate=...&endDate=...&period=day` - Detailed productivity analysis
+
+### Deadline Management
+- `GET /api/analytics/deadlines` - Get overdue, due tomorrow, due this week tasks
+
+### Data Export
+- `GET /api/analytics/export/tasks` - Download Excel file with all tasks
+- `GET /api/analytics/export/time-entries` - Download Excel file with all time entries
 
 ### Daily Logs
 - `GET /api/logs/:date` - Get daily log
@@ -206,23 +263,45 @@ The application uses SQLite for data storage, creating the database automaticall
 
 ## 🎓 Academic Use Cases
 
-### Literature Review Management
-1. Create a "Literature Review" parent task
-2. Add subtasks for each paper or source
-3. Track time spent reading and note-taking
-4. Monitor progress with completion percentages
+### Master's Thesis Organization
+```
+📚 Master's Thesis (Parent Task)
+├── 📖 Literature Review
+│   ├── 📄 Paper 1: Neural Networks in NLP
+│   ├── 📄 Paper 2: Transformer Architecture  
+│   └── 📄 Paper 3: BERT Applications
+├── ✍️ Chapter 1: Introduction
+│   ├── 📝 Problem Statement
+│   ├── 📝 Research Questions
+│   └── 📝 Thesis Structure
+├── 🔬 Chapter 2: Methodology
+│   ├── 📊 Data Collection Design
+│   ├── 🧪 Experimental Setup
+│   └── 📈 Analysis Framework
+└── 📊 Chapter 3: Results & Analysis
+```
 
-### Thesis Writing Organization
-1. Create chapter-based parent tasks
-2. Break down into section subtasks
-3. Set time estimates for writing goals
-4. Track actual writing productivity
+### Workflow Examples
 
-### Research Project Management
-1. Organize research phases as parent tasks
-2. Create methodology subtasks
-3. Track data collection and analysis time
-4. Monitor overall project progress
+**Literature Review Management:**
+1. Create "Literature Review" parent task with deadline
+2. Add subtask for each paper with estimated reading time
+3. Start work timer when reading, automatic time accumulation to parent
+4. Use deadline tab to track paper review deadlines
+5. Export progress reports for supervisor meetings
+
+**Daily Research Routine:**
+1. Check Deadlines tab every morning for urgent tasks
+2. Start timer on current task (automatically stops others)
+3. Working indicator shows active task across all views
+4. Daily log automatically tracks completed work
+5. Use Analytics tab to review weekly productivity patterns
+
+**Thesis Defense Preparation:**
+1. Create "Defense Preparation" with presentation subtasks
+2. Set deadline 2 weeks before defense date  
+3. Track practice session times and slide preparation
+4. Export time entries for academic progress documentation
 
 ## 🔒 Data Privacy
 
@@ -231,40 +310,71 @@ The application uses SQLite for data storage, creating the database automaticall
 - Complete control over your academic work data
 - Regular backups recommended for important data
 
+## 📄 Excel Export Details
+
+### Tasks Export (`tasks-export-YYYY-MM-DD.xlsx`)
+Complete task database including:
+- **Task Information**: ID, Title, Description, Category, Priority, Status
+- **Time Data**: Estimated Time, Actual Time, Total Time (with subtask accumulation)
+- **Deadline Management**: Deadline dates, overdue status, days until deadline
+- **Hierarchy Data**: Parent Task IDs, subtask counts, progress percentages  
+- **Metadata**: Creation dates, completion dates, last updated timestamps
+
+### Time Entries Export (`time-entries-export-YYYY-MM-DD.xlsx`)
+Detailed work session logs with two sheets:
+- **Sheet 1 - Time Entries**: Every work session with start/end times, durations, task details
+- **Sheet 2 - Daily Summary**: Aggregated daily statistics, total hours, categories worked
+- **Advanced Grouping**: Week numbers, month codes, year data for analysis
+- **Smart Calculations**: Automatic time conversions, productivity metrics
+
+Perfect for:
+- 📊 Supervisor progress meetings
+- 📈 Academic progress reports  
+- 📋 Thesis timeline documentation
+- 🎯 Personal productivity analysis
+
 ## 🐛 Troubleshooting
 
-### Common Issues
+### Quick Fixes
 
-**Application won't start**
-- Ensure Node.js is installed (v14+)
-- Run `npm install` to install dependencies
-- Check if port 3000 is available
+**Application won't start:**
+- Use the automated scripts: `./start.sh` (Linux/Mac) or `start.bat` (Windows)
+- Ensure Node.js is installed: [nodejs.org](https://nodejs.org/)
+- Try: `npm run reset` to clean database, then restart
 
-**Database errors**
-- Check if `data/` directory is writable
-- Ensure sufficient disk space
-- Restart the application
+**Port already in use:**
+- Use stop script: `./stop.sh` or `stop.bat` 
+- Or manually: `lsof -i :3000` then `kill <PID>`
 
-**Time tracking not working**
+**Live updates not working:**
+- Refresh browser page (Ctrl+F5 or Cmd+Shift+R)
 - Check browser console for JavaScript errors
-- Ensure stable internet connection for API calls
-- Try refreshing the page
+- Ensure stable internet connection
+
+**Export not working:**
+- Check if `xlsx` dependency is installed: `npm install`
+- Ensure browser allows downloads from localhost
+- Try different browser if download fails
 
 ### Getting Help
+1. Check browser console (F12) for error messages
+2. Review server logs in `logs/server.log` 
+3. Try database reset: `npm run reset`
+4. Restart with automated scripts
 
-1. Check the browser console for error messages
-2. Review the server logs in the terminal
-3. Ensure all dependencies are properly installed
-4. Restart the application
+## 🚀 Advanced Features
 
-## 📈 Future Enhancements
+### Real-Time Updates
+- ✅ **Live UI Sync**: All tabs update automatically when you make changes
+- ✅ **Background Refresh**: Data refreshes every 2 minutes to stay current
+- ✅ **Smart Loading**: Visual indicators during operations
+- ✅ **Graceful Shutdown**: Automatic time tracking save when stopping server
 
-- Export functionality (CSV, PDF reports)
-- Calendar integration
-- Mobile app version
-- Cloud synchronization options
-- Advanced reporting features
-- Collaboration features for team projects
+### Professional Analytics
+- ✅ **Multi-Period Analysis**: Week, Month, Year, or All Time views
+- ✅ **Flexible Grouping**: Daily, Weekly, Monthly data aggregation
+- ✅ **Interactive Charts**: Dual-axis charts with time and task completion
+- ✅ **Export Ready**: Professional Excel reports for academic use
 
 ## 🤝 Contributing
 
@@ -289,6 +399,26 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+## 🎯 **Complete Feature Summary**
+
+✅ **Hierarchical Task Management** with unlimited nesting  
+✅ **Smart Time Tracking** with single active session enforcement  
+✅ **Advanced Deadline Management** with visual warnings  
+✅ **Professional Analytics Dashboard** with multiple time periods  
+✅ **Excel Data Export** for academic reporting  
+✅ **Real-Time Live Updates** across all views  
+✅ **Cross-Platform Scripts** for easy startup/shutdown  
+✅ **Academic Workflow Optimization** designed for thesis work
+
+**Perfect for:**
+- 🎓 Master's & PhD thesis management
+- 📚 Research project organization  
+- 📊 Academic progress reporting
+- ⏰ Daily productivity tracking
+- 📈 Long-term work pattern analysis
+
+---
+
 **Happy thesis writing! 🎓📚**
 
-Remember: Consistent daily progress is more important than perfect planning. Use this tool to stay organized, track your productivity, and maintain momentum throughout your academic journey.
+*Remember: Consistent daily progress is more important than perfect planning. Use this tool to stay organized, track your productivity, and maintain momentum throughout your academic journey.*
