@@ -1,5 +1,6 @@
 const Task = require('../models/Task');
 const DailyLog = require('../models/DailyLog');
+const Category = require('../models/Category');
 
 class TaskService {
     constructor(database, timeTracker) {
@@ -390,6 +391,55 @@ class TaskService {
             }
         }
         return flattened;
+    }
+
+    // Category management methods
+    async createCategory(categoryData) {
+        const category = new Category(categoryData);
+        await this.db.createCategory(category);
+        return category;
+    }
+
+    async updateCategory(id, updates) {
+        const existingCategory = await this.db.getCategory(id);
+        if (!existingCategory) {
+            throw new Error('Category not found');
+        }
+
+        const category = new Category({ ...existingCategory, ...updates });
+        category.updatedAt = new Date().toISOString();
+        
+        await this.db.updateCategory(category);
+        return category;
+    }
+
+    async getCategories() {
+        const categoryRows = await this.db.getCategories();
+        return categoryRows.map(row => this.db.rowToCategory(row));
+    }
+
+    async getCategory(id) {
+        const categoryRow = await this.db.getCategory(id);
+        return categoryRow ? this.db.rowToCategory(categoryRow) : null;
+    }
+
+    async deleteCategory(id) {
+        // Check if any tasks use this category
+        const tasksWithCategory = await this.db.all(
+            'SELECT COUNT(*) as count FROM tasks WHERE category = ?',
+            [id]
+        );
+        
+        if (tasksWithCategory[0].count > 0) {
+            throw new Error('Cannot delete category that is used by tasks');
+        }
+        
+        const result = await this.db.deleteCategory(id);
+        if (result.changes === 0) {
+            throw new Error('Category not found or cannot be deleted (default categories are protected)');
+        }
+        
+        return result;
     }
 }
 

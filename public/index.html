@@ -38,6 +38,46 @@
         <!-- Tasks Tab -->
         <div id="tasks-tab" class="tab-content active">
             <div class="container">
+                <!-- Category Management -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-tags"></i> Manage Categories</h2>
+                        <button class="btn btn-collapse" onclick="toggleCard(this)">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="card-content collapsed">
+                        <div class="category-management">
+                            <div class="category-form">
+                                <h3>Create New Category</h3>
+                                <form id="categoryForm">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="categoryName">Name *</label>
+                                            <input type="text" id="categoryName" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="categoryColor">Color</label>
+                                            <input type="color" id="categoryColor" value="#3b82f6">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="categoryDescription">Description</label>
+                                        <input type="text" id="categoryDescription" placeholder="Optional description">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Create Category</button>
+                                </form>
+                            </div>
+                            <div class="category-list">
+                                <h3>Existing Categories</h3>
+                                <div id="categoryList">
+                                    <!-- Categories will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Task Creation -->
                 <div class="card">
                     <div class="card-header">

@@ -10,6 +10,7 @@ const TaskService = require('./services/TaskService');
 const tasksRouter = require('./routes/tasks');
 const logsRouter = require('./routes/logs');
 const analyticsRouter = require('./routes/analytics');
+const categoriesRouter = require('./routes/categories');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,6 +39,7 @@ async function initializeApp() {
         app.use('/api/tasks', tasksRouter);
         app.use('/api/logs', logsRouter);
         app.use('/api/analytics', analyticsRouter);
+        app.use('/api/categories', categoriesRouter);
 
         // Health check endpoint
         app.get('/api/health', (req, res) => {

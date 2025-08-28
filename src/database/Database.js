@@ -73,12 +73,25 @@ class Database {
                 notes TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            )`,
+            
+            `CREATE TABLE IF NOT EXISTS categories (
+                id TEXT PRIMARY KEY,
+                name TEXT UNIQUE NOT NULL,
+                color TEXT DEFAULT '#3b82f6',
+                description TEXT,
+                is_default BOOLEAN DEFAULT FALSE,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )`
         ];
 
         for (const query of queries) {
             await this.run(query);
         }
+        
+        // Initialize default categories if none exist
+        await this.initializeDefaultCategories();
     }
 
     run(query, params = []) {
@@ -269,6 +282,73 @@ class Database {
             tasksCompleted: row.tasks_completed ? JSON.parse(row.tasks_completed) : [],
             tasksWorkedOn: row.tasks_worked_on ? JSON.parse(row.tasks_worked_on) : [],
             notes: row.notes,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+        };
+    }
+
+    // Category operations
+    async initializeDefaultCategories() {
+        const Category = require('../models/Category');
+        const existingCount = await this.get('SELECT COUNT(*) as count FROM categories');
+        
+        if (existingCount.count === 0) {
+            const defaultCategories = Category.getDefaultCategories();
+            for (const category of defaultCategories) {
+                await this.createCategory(category);
+            }
+        }
+    }
+
+    async createCategory(category) {
+        const query = `INSERT INTO categories 
+            (id, name, color, description, is_default, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`;
+        
+        const params = [
+            category.id, category.name, category.color, category.description,
+            category.isDefault, category.createdAt, category.updatedAt
+        ];
+        
+        return await this.run(query, params);
+    }
+
+    async updateCategory(category) {
+        const query = `UPDATE categories SET 
+            name = ?, color = ?, description = ?, updated_at = ?
+            WHERE id = ? AND is_default = FALSE`; // Prevent updating default categories
+        
+        const params = [
+            category.name, category.color, category.description, 
+            category.updatedAt, category.id
+        ];
+        
+        return await this.run(query, params);
+    }
+
+    async getCategories() {
+        const query = `SELECT * FROM categories ORDER BY is_default DESC, name ASC`;
+        return await this.all(query);
+    }
+
+    async getCategory(id) {
+        const query = `SELECT * FROM categories WHERE id = ?`;
+        return await this.get(query, [id]);
+    }
+
+    async deleteCategory(id) {
+        // Don't allow deleting default categories
+        const query = `DELETE FROM categories WHERE id = ? AND is_default = FALSE`;
+        return await this.run(query, [id]);
+    }
+
+    rowToCategory(row) {
+        return {
+            id: row.id,
+            name: row.name,
+            color: row.color,
+            description: row.description,
+            isDefault: row.is_default === 1,
             createdAt: row.created_at,
             updatedAt: row.updated_at
         };
