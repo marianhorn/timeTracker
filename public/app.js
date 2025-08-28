@@ -9,6 +9,7 @@ class TimeTrackerApp {
         this.activeTaskId = null;
         this.deadlineData = null;
         this.charts = {};
+        this.lastUpdate = null;
         
         this.init();
     }
@@ -56,11 +57,42 @@ class TimeTrackerApp {
     }
 
     setupTimerUpdate() {
+        // Update active timer frequently
         setInterval(() => this.updateActiveTimer(), 30000); // Update every 30 seconds
+        
+        // Refresh data periodically to keep everything in sync
+        setInterval(() => this.refreshCurrentTab(), 120000); // Refresh current tab every 2 minutes
+    }
+
+    async refreshCurrentTab() {
+        try {
+            if (this.currentTab === 'tasks') {
+                await this.loadTasks();
+            } else if (this.currentTab === 'deadlines') {
+                await this.loadDeadlines();
+            } else if (this.currentTab === 'analytics') {
+                await this.loadAnalytics();
+            } else if (this.currentTab === 'logs') {
+                await this.loadDailyLog();
+            }
+            await this.loadSummary(); // Always refresh summary stats
+            this.lastUpdate = new Date();
+            
+            // Show a subtle refresh indicator
+            this.showNotification('Data refreshed', 'info', 1000);
+        } catch (error) {
+            console.error('Background refresh failed:', error);
+        }
     }
 
     async apiCall(endpoint, options = {}) {
         try {
+            // Show loading indicator for operations that change data
+            const isModifying = ['POST', 'PUT', 'DELETE'].includes(options.method);
+            if (isModifying) {
+                this.showLoading(true);
+            }
+            
             const response = await fetch(`${this.apiBase}${endpoint}`, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -78,6 +110,29 @@ class TimeTrackerApp {
             console.error('API call failed:', error);
             this.showNotification('API call failed: ' + error.message, 'error');
             throw error;
+        } finally {
+            // Hide loading indicator
+            this.showLoading(false);
+        }
+    }
+
+    showLoading(show) {
+        let loader = document.getElementById('globalLoader');
+        if (!loader) {
+            loader = document.createElement('div');
+            loader.id = 'globalLoader';
+            loader.className = 'global-loader';
+            loader.innerHTML = `
+                <div class="loader-spinner"></div>
+                <span>Updating...</span>
+            `;
+            document.body.appendChild(loader);
+        }
+        
+        if (show) {
+            loader.classList.add('show');
+        } else {
+            setTimeout(() => loader.classList.remove('show'), 500); // Small delay for better UX
         }
     }
 
@@ -124,10 +179,12 @@ class TimeTrackerApp {
             });
 
             e.target.reset();
-            await this.loadTasks();
-            if (this.currentTab === 'deadlines') {
-                await this.loadDeadlines();
-            }
+            // Immediately update all relevant views
+            await Promise.all([
+                this.loadTasks(),
+                this.loadSummary(),
+                this.currentTab === 'deadlines' ? this.loadDeadlines() : Promise.resolve()
+            ]);
             this.showNotification('Task created successfully!', 'success');
         } catch (error) {
             this.showNotification('Failed to create task', 'error');
@@ -345,10 +402,12 @@ class TimeTrackerApp {
             });
 
             this.cancelSubtask(parentId);
-            await this.loadTasks();
-            if (this.currentTab === 'deadlines') {
-                await this.loadDeadlines();
-            }
+            // Immediately update all relevant views
+            await Promise.all([
+                this.loadTasks(),
+                this.loadSummary(),
+                this.currentTab === 'deadlines' ? this.loadDeadlines() : Promise.resolve()
+            ]);
             this.showNotification('Subtask created successfully!', 'success');
         } catch (error) {
             this.showNotification('Failed to create subtask', 'error');
@@ -358,11 +417,13 @@ class TimeTrackerApp {
     async startTask(taskId) {
         try {
             await this.apiCall(`/tasks/${taskId}/start`, { method: 'POST' });
-            await this.loadTasks();
-            await this.updateActiveTimer();
-            if (this.currentTab === 'deadlines') {
-                await this.loadDeadlines();
-            }
+            // Immediately update all relevant views
+            await Promise.all([
+                this.loadTasks(),
+                this.updateActiveTimer(),
+                this.loadSummary(),
+                this.currentTab === 'deadlines' ? this.loadDeadlines() : Promise.resolve()
+            ]);
             this.showNotification('Time tracking started!', 'success');
         } catch (error) {
             this.showNotification('Failed to start time tracking', 'error');
@@ -372,11 +433,14 @@ class TimeTrackerApp {
     async stopTask(taskId) {
         try {
             await this.apiCall(`/tasks/${taskId}/stop`, { method: 'POST' });
-            await this.loadTasks();
-            await this.updateActiveTimer();
-            if (this.currentTab === 'deadlines') {
-                await this.loadDeadlines();
-            }
+            // Immediately update all relevant views
+            await Promise.all([
+                this.loadTasks(),
+                this.updateActiveTimer(),
+                this.loadSummary(),
+                this.currentTab === 'deadlines' ? this.loadDeadlines() : Promise.resolve(),
+                this.currentTab === 'logs' ? this.loadDailyLog() : Promise.resolve()
+            ]);
             this.showNotification('Time tracking stopped', 'success');
         } catch (error) {
             this.showNotification('Failed to stop time tracking', 'error');
@@ -389,10 +453,13 @@ class TimeTrackerApp {
                 method: 'PUT',
                 body: JSON.stringify({ status })
             });
-            await this.loadTasks();
-            if (this.currentTab === 'deadlines') {
-                await this.loadDeadlines();
-            }
+            // Immediately update all relevant views
+            await Promise.all([
+                this.loadTasks(),
+                this.loadSummary(),
+                this.currentTab === 'deadlines' ? this.loadDeadlines() : Promise.resolve(),
+                this.currentTab === 'logs' ? this.loadDailyLog() : Promise.resolve()
+            ]);
             this.showNotification(`Task ${status.replace('_', ' ')}!`, 'success');
         } catch (error) {
             this.showNotification('Failed to update task status', 'error');
@@ -406,10 +473,13 @@ class TimeTrackerApp {
 
         try {
             await this.apiCall(`/tasks/${taskId}`, { method: 'DELETE' });
-            await this.loadTasks();
-            if (this.currentTab === 'deadlines') {
-                await this.loadDeadlines();
-            }
+            // Immediately update all relevant views
+            await Promise.all([
+                this.loadTasks(),
+                this.loadSummary(),
+                this.currentTab === 'deadlines' ? this.loadDeadlines() : Promise.resolve(),
+                this.currentTab === 'analytics' ? this.loadAnalytics() : Promise.resolve()
+            ]);
             this.showNotification('Task deleted', 'success');
         } catch (error) {
             this.showNotification('Failed to delete task', 'error');
@@ -758,7 +828,7 @@ class TimeTrackerApp {
         `;
     }
 
-    showNotification(message, type = 'info') {
+    showNotification(message, type = 'info', duration = 3000) {
         // Simple notification - could be enhanced with a proper notification system
         const colors = {
             success: '#10b981',
@@ -770,7 +840,7 @@ class TimeTrackerApp {
         const notification = document.createElement('div');
         notification.style.cssText = `
             position: fixed;
-            top: 20px;
+            top: ${document.getElementById('globalLoader') ? '80px' : '20px'};
             right: 20px;
             background: ${colors[type]};
             color: white;
@@ -779,6 +849,7 @@ class TimeTrackerApp {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             z-index: 1001;
             animation: slideIn 0.3s ease-out;
+            font-size: 0.875rem;
         `;
         
         notification.textContent = message;
@@ -786,8 +857,12 @@ class TimeTrackerApp {
         
         setTimeout(() => {
             notification.style.animation = 'slideOut 0.3s ease-in forwards';
-            setTimeout(() => document.body.removeChild(notification), 300);
-        }, 3000);
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, duration);
     }
 
     formatTime(minutes) {
