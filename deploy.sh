@@ -82,7 +82,12 @@ install_dependencies() {
                 sudo dnf install -y nodejs
             fi
             NGINX_INSTALL_CMD="sudo dnf install nginx -y"
-            CERTBOT_INSTALL_CMD="sudo dnf install certbot python3-certbot-nginx -y"
+            # Enable EPEL for certbot on Oracle Linux/RHEL/CentOS
+            if [[ "$DISTRO" == "ol" ]] || [[ "$DISTRO" == "centos" ]] || [[ "$DISTRO" == "rhel" ]]; then
+                CERTBOT_INSTALL_CMD="sudo dnf install -y epel-release && sudo dnf install -y certbot python3-certbot-nginx"
+            else
+                CERTBOT_INSTALL_CMD="sudo dnf install certbot python3-certbot-nginx -y"
+            fi
             ;;
         "sles"|"opensuse"|"opensuse-leap"|"opensuse-tumbleweed")
             sudo zypper refresh && sudo zypper update -y
@@ -240,8 +245,21 @@ configure_nginx() {
     
     log "Configuring Nginx for domain: $DOMAIN"
     
+    detect_distro
+    
+    # Different nginx config paths for different distros
+    if [[ "$DISTRO" == "ubuntu" ]] || [[ "$DISTRO" == "debian" ]]; then
+        # Debian/Ubuntu style
+        NGINX_CONFIG_PATH="/etc/nginx/sites-available/timetracker"
+        NGINX_ENABLE_CMD="sudo ln -sf /etc/nginx/sites-available/timetracker /etc/nginx/sites-enabled/ && sudo rm -f /etc/nginx/sites-enabled/default"
+    else
+        # RHEL/CentOS/Oracle Linux style
+        NGINX_CONFIG_PATH="/etc/nginx/conf.d/timetracker.conf"
+        NGINX_ENABLE_CMD="sudo systemctl enable nginx"
+    fi
+    
     # Create Nginx config
-    sudo tee /etc/nginx/sites-available/timetracker > /dev/null <<EOF
+    sudo tee $NGINX_CONFIG_PATH > /dev/null <<EOF
 server {
     listen 80;
     server_name $DOMAIN;
@@ -260,12 +278,11 @@ server {
 }
 EOF
     
-    # Enable site
-    sudo ln -sf /etc/nginx/sites-available/timetracker /etc/nginx/sites-enabled/
-    sudo rm -f /etc/nginx/sites-enabled/default
+    # Enable site (different methods for different distros)
+    eval $NGINX_ENABLE_CMD
     
-    # Test and reload Nginx
-    sudo nginx -t && sudo systemctl reload nginx
+    # Test and start/reload Nginx
+    sudo nginx -t && sudo systemctl start nginx && sudo systemctl reload nginx
     
     success "Nginx configured"
 }
