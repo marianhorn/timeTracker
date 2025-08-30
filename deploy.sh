@@ -44,20 +44,76 @@ check_root() {
     fi
 }
 
+# Detect Linux distribution
+detect_distro() {
+    if [[ -f /etc/os-release ]]; then
+        source /etc/os-release
+        DISTRO=$ID
+        DISTRO_LIKE=$ID_LIKE
+    else
+        error "Cannot detect Linux distribution"
+    fi
+}
+
 # Install system dependencies
 install_dependencies() {
     log "Installing system dependencies..."
     
-    # Update system
-    sudo apt update && sudo apt upgrade -y
+    detect_distro
+    log "Detected distribution: $DISTRO"
     
-    # Install Node.js 18
-    if ! command -v node &> /dev/null; then
-        log "Installing Node.js..."
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-        sudo apt-get install -y nodejs
+    # Update system and install Node.js based on distro
+    case "$DISTRO" in
+        "ubuntu"|"debian")
+            sudo apt update && sudo apt upgrade -y
+            if ! command -v node &> /dev/null; then
+                log "Installing Node.js..."
+                curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+                sudo apt-get install -y nodejs
+            fi
+            NGINX_INSTALL_CMD="sudo apt install nginx -y"
+            CERTBOT_INSTALL_CMD="sudo apt install certbot python3-certbot-nginx -y"
+            ;;
+        "ol"|"centos"|"rhel"|"fedora")
+            sudo dnf update -y
+            if ! command -v node &> /dev/null; then
+                log "Installing Node.js..."
+                curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+                sudo dnf install -y nodejs
+            fi
+            NGINX_INSTALL_CMD="sudo dnf install nginx -y"
+            CERTBOT_INSTALL_CMD="sudo dnf install certbot python3-certbot-nginx -y"
+            ;;
+        "sles"|"opensuse"|"opensuse-leap"|"opensuse-tumbleweed")
+            sudo zypper refresh && sudo zypper update -y
+            if ! command -v node &> /dev/null; then
+                log "Installing Node.js..."
+                sudo zypper install -y nodejs18 npm18
+            fi
+            NGINX_INSTALL_CMD="sudo zypper install -y nginx"
+            CERTBOT_INSTALL_CMD="sudo zypper install -y certbot python3-certbot-nginx"
+            ;;
+        *)
+            if [[ "$DISTRO_LIKE" == *"fedora"* ]] || [[ "$DISTRO_LIKE" == *"rhel"* ]]; then
+                log "Using dnf commands for $DISTRO (like $DISTRO_LIKE)"
+                sudo dnf update -y
+                if ! command -v node &> /dev/null; then
+                    curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+                    sudo dnf install -y nodejs
+                fi
+                NGINX_INSTALL_CMD="sudo dnf install nginx -y"
+                CERTBOT_INSTALL_CMD="sudo dnf install certbot python3-certbot-nginx -y"
+            else
+                error "Unsupported distribution: $DISTRO. Please install Node.js 18+ manually."
+            fi
+            ;;
+    esac
+    
+    # Check Node.js installation
+    if command -v node &> /dev/null; then
+        log "Node.js installed: $(node --version)"
     else
-        log "Node.js already installed: $(node --version)"
+        error "Failed to install Node.js"
     fi
     
     # Install PM2
@@ -68,19 +124,18 @@ install_dependencies() {
         log "PM2 already installed: $(pm2 --version)"
     fi
     
-    # Install Nginx (only if domain is not localhost)
+    # Install Nginx and Certbot (only if domain is not localhost)
     if [[ "$DOMAIN" != "localhost" ]]; then
         if ! command -v nginx &> /dev/null; then
             log "Installing Nginx..."
-            sudo apt install nginx -y
+            eval $NGINX_INSTALL_CMD
         else
             log "Nginx already installed"
         fi
         
-        # Install Certbot for SSL
         if ! command -v certbot &> /dev/null; then
             log "Installing Certbot..."
-            sudo apt install certbot python3-certbot-nginx -y
+            eval $CERTBOT_INSTALL_CMD
         else
             log "Certbot already installed"
         fi
