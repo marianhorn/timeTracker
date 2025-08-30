@@ -22,19 +22,31 @@ const { authenticateAndSwitchDB } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-            scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'"],
-            fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+// Security middleware - conditional based on environment
+if (process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true') {
+    // Full security headers for HTTPS production
+    app.use(helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+                scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+                imgSrc: ["'self'", "data:", "https:"],
+                connectSrc: ["'self'"],
+                fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+            },
         },
-    },
-}));
+    }));
+} else {
+    // Minimal security headers for HTTP/development
+    app.use(helmet({
+        contentSecurityPolicy: false,
+        crossOriginOpenerPolicy: false,
+        crossOriginResourcePolicy: false,
+        crossOriginEmbedderPolicy: false,
+        originAgentCluster: false,
+    }));
+}
 
 // Rate limiting
 const generalLimiter = rateLimit({
