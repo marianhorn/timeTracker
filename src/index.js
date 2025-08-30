@@ -55,15 +55,20 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 async function initializeApp() {
     try {
-        // Initialize main database (for users)
-        const database = new Database();
-        await database.connect();
+        // Initialize main database (for users and authentication)
+        const mainDatabase = new Database();
+        await mainDatabase.connect();
 
-        // Initialize authentication service
-        const authService = new AuthService(database);
+        // Initialize user database handler (for switching user databases)
+        const userDatabase = new Database();
+        await userDatabase.connect();
+
+        // Initialize authentication service with main database (never switches)
+        const authService = new AuthService(mainDatabase);
 
         // Make services available to routes
-        app.locals.database = database;
+        app.locals.database = userDatabase;  // This one switches for user operations
+        app.locals.mainDatabase = mainDatabase;  // This one stays on main DB
         app.locals.authService = authService;
 
         // Public routes (no authentication required)

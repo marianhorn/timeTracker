@@ -48,6 +48,7 @@ class AuthService {
     }
 
     async login(usernameOrEmail, password) {
+        // Try to find user by username OR email
         const user = await this.getUserByUsernameOrEmail(usernameOrEmail, usernameOrEmail);
         
         if (!user) {

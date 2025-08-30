@@ -22,6 +22,23 @@ class AuthManager {
         if (registerForm) {
             registerForm.addEventListener('submit', (e) => this.handleRegister(e));
         }
+
+        // Form switch links
+        const showRegisterLink = document.getElementById('show-register-link');
+        if (showRegisterLink) {
+            showRegisterLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showRegister();
+            });
+        }
+
+        const showLoginLink = document.getElementById('show-login-link');
+        if (showLoginLink) {
+            showLoginLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showLogin();
+            });
+        }
     }
 
     async checkExistingAuth() {
@@ -240,15 +257,6 @@ class AuthManager {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     }
-}
-
-// Global functions for HTML onclick handlers
-function showLogin() {
-    window.authManager.showLogin();
-}
-
-function showRegister() {
-    window.authManager.showRegister();
 }
 
 // Initialize auth manager when DOM is loaded
