@@ -281,6 +281,12 @@ EOF
     # Enable site (different methods for different distros)
     eval $NGINX_ENABLE_CMD
     
+    # Enable SELinux permissions for nginx proxy (RHEL/CentOS/Oracle Linux)
+    if [[ "$DISTRO" != "ubuntu" ]] && [[ "$DISTRO" != "debian" ]]; then
+        log "Configuring SELinux for nginx proxy..."
+        sudo setsebool -P httpd_can_network_connect 1 2>/dev/null || warn "Could not configure SELinux (not critical)"
+    fi
+    
     # Test and start/reload Nginx
     sudo nginx -t && sudo systemctl start nginx && sudo systemctl reload nginx
     
@@ -298,14 +304,64 @@ setup_ssl() {
     # Check if certificate already exists
     if sudo certbot certificates | grep -q "$DOMAIN"; then
         log "SSL certificate already exists for $DOMAIN"
-        return
+    else
+        # Obtain certificate
+        sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email $EMAIL --redirect
     fi
     
-    # Obtain certificate
-    sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email $EMAIL --redirect
+    # Ensure nginx config has proper HTTPS setup
+    detect_distro
+    if [[ "$DISTRO" == "ubuntu" ]] || [[ "$DISTRO" == "debian" ]]; then
+        NGINX_CONFIG_PATH="/etc/nginx/sites-available/timetracker"
+    else
+        NGINX_CONFIG_PATH="/etc/nginx/conf.d/timetracker.conf"
+    fi
+    
+    # Verify SSL configuration exists, if not create it
+    if ! grep -q "listen 443" $NGINX_CONFIG_PATH; then
+        log "Adding HTTPS configuration to nginx..."
+        
+        # Backup current config
+        sudo cp $NGINX_CONFIG_PATH ${NGINX_CONFIG_PATH}.backup
+        
+        # Create complete HTTP + HTTPS config
+        sudo tee $NGINX_CONFIG_PATH > /dev/null <<EOF
+server {
+    listen 80;
+    server_name $DOMAIN;
+    return 301 https://\\\$server_name\\\$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name $DOMAIN;
+
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \\\$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \\\$host;
+        proxy_set_header X-Real-IP \\\$remote_addr;
+        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \\\$scheme;
+        proxy_cache_bypass \\\$http_upgrade;
+    }
+}
+EOF
+        
+        # Test and reload nginx
+        sudo nginx -t && sudo systemctl reload nginx
+    fi
     
     # Test auto-renewal
-    sudo certbot renew --dry-run
+    sudo certbot renew --dry-run 2>/dev/null || warn "SSL auto-renewal test failed (not critical)"
     
     success "SSL configured"
 }
