@@ -12,11 +12,34 @@ class TimeTrackerApp {
         this.lastUpdate = null;
         this.currentPeriod = 'week';
         this.currentChartGrouping = 'day'; // Will be set correctly in loadAnalytics
+        this.user = null;
+        this.token = null;
         
-        this.init();
+        this.checkAuthAndInit();
+    }
+
+    checkAuthAndInit() {
+        // Check if user is authenticated
+        this.token = localStorage.getItem('timeTracker_token');
+        const userJson = localStorage.getItem('timeTracker_user');
+        
+        if (!this.token || !userJson) {
+            // Redirect to login page
+            window.location.href = '/login';
+            return;
+        }
+
+        try {
+            this.user = JSON.parse(userJson);
+            this.init();
+        } catch (error) {
+            console.error('Invalid user data, redirecting to login');
+            this.logout();
+        }
     }
 
     async init() {
+        this.updateUserDisplay();
         this.setupEventListeners();
         this.setupTimerUpdate();
         await this.loadCategories();
@@ -27,6 +50,13 @@ class TimeTrackerApp {
         // Set today's date in log picker
         document.getElementById('logDate').value = new Date().toISOString().split('T')[0];
         await this.loadDailyLog();
+    }
+
+    updateUserDisplay() {
+        const userNameElement = document.getElementById('currentUserName');
+        if (userNameElement && this.user) {
+            userNameElement.textContent = this.user.username;
+        }
     }
 
     setupEventListeners() {
@@ -102,10 +132,17 @@ class TimeTrackerApp {
             const response = await fetch(`${this.apiBase}${endpoint}`, {
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`,
                     ...options.headers
                 },
                 ...options
             });
+            
+            if (response.status === 401 || response.status === 403) {
+                // Token is invalid, logout user
+                this.logout();
+                return;
+            }
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1398,6 +1435,15 @@ class TimeTrackerApp {
                 </div>
             </div>
         `).join('');
+    }
+
+    logout() {
+        // Clear local storage
+        localStorage.removeItem('timeTracker_token');
+        localStorage.removeItem('timeTracker_user');
+        
+        // Redirect to login page
+        window.location.href = '/login';
     }
 }
 

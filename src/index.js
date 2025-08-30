@@ -1,53 +1,114 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const Database = require('./database/Database');
 const TimeTracker = require('./services/TimeTracker');
 const TaskService = require('./services/TaskService');
+const AuthService = require('./services/AuthService');
 
 // Import routes
+const authRouter = require('./routes/auth');
 const tasksRouter = require('./routes/tasks');
 const logsRouter = require('./routes/logs');
 const analyticsRouter = require('./routes/analytics');
 const categoriesRouter = require('./routes/categories');
 
+// Import middleware
+const { authenticateAndSwitchDB } = require('./middleware/auth');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Security middleware
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+            scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+        },
+    },
+}));
+
+// Rate limiting
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // limit each IP to 1000 requests per windowMs
+    message: { error: 'Too many requests, please try again later' }
+});
+
+app.use(generalLimiter);
+
+// Basic middleware
+app.use(cors({
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
+    credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
 
 async function initializeApp() {
     try {
-        // Initialize database
+        // Initialize main database (for users)
         const database = new Database();
         await database.connect();
 
-        // Initialize services
-        const timeTracker = new TimeTracker();
-        const taskService = new TaskService(database, timeTracker);
+        // Initialize authentication service
+        const authService = new AuthService(database);
 
         // Make services available to routes
         app.locals.database = database;
-        app.locals.timeTracker = timeTracker;
-        app.locals.taskService = taskService;
+        app.locals.authService = authService;
 
-        // Routes
-        app.use('/api/tasks', tasksRouter);
-        app.use('/api/logs', logsRouter);
-        app.use('/api/analytics', analyticsRouter);
-        app.use('/api/categories', categoriesRouter);
+        // Public routes (no authentication required)
+        app.use('/api/auth', authRouter);
+
+        // Protected routes (require authentication and user database switching)
+        app.use('/api/tasks', authenticateAndSwitchDB, (req, res, next) => {
+            // Use user-specific services
+            req.app.locals.taskService = req.userServices.taskService;
+            req.app.locals.timeTracker = req.userServices.timeTracker;
+            next();
+        }, tasksRouter);
+        
+        app.use('/api/logs', authenticateAndSwitchDB, (req, res, next) => {
+            req.app.locals.taskService = req.userServices.taskService;
+            next();
+        }, logsRouter);
+        
+        app.use('/api/analytics', authenticateAndSwitchDB, (req, res, next) => {
+            req.app.locals.taskService = req.userServices.taskService;
+            next();
+        }, analyticsRouter);
+        
+        app.use('/api/categories', authenticateAndSwitchDB, (req, res, next) => {
+            req.app.locals.taskService = req.userServices.taskService;
+            next();
+        }, categoriesRouter);
 
         // Health check endpoint
         app.get('/api/health', (req, res) => {
             res.json({ 
                 status: 'healthy', 
                 timestamp: new Date().toISOString(),
-                activeTracking: timeTracker.getAllActiveEntries().length
+                usersCount: 'protected' // Don't expose user count for security
             });
+        });
+
+        // Serve login page for unauthenticated users
+        app.get('/login', (req, res) => {
+            res.sendFile(path.join(__dirname, '../public/login.html'));
+        });
+
+        // Redirect root to login page (will be handled by frontend)
+        app.get('/', (req, res) => {
+            res.sendFile(path.join(__dirname, '../public/index.html'));
         });
 
         // Serve frontend for all other routes

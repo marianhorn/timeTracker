@@ -30,6 +30,10 @@ class Database {
     }
 
     async initializeTables() {
+        // First create user tables in main database
+        await this.initializeUserTables();
+        
+        // Then create task-related tables (these will be user-specific)
         const queries = [
             `CREATE TABLE IF NOT EXISTS tasks (
                 id TEXT PRIMARY KEY,
@@ -125,6 +129,131 @@ class Database {
                     reject(err);
                 } else {
                     resolve(rows);
+                }
+            });
+        });
+    }
+
+    // User management methods
+    async initializeUserTables() {
+        const userQueries = [
+            `CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_login_at TEXT
+            )`,
+            `CREATE INDEX IF NOT EXISTS idx_users_username ON users (username)`,
+            `CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)`
+        ];
+
+        for (const query of userQueries) {
+            await this.run(query);
+        }
+    }
+
+    async createUser(user) {
+        const query = `
+            INSERT INTO users (id, username, email, password_hash, is_active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+        const params = [
+            user.id, user.username, user.email, user.passwordHash,
+            user.isActive ? 1 : 0, user.createdAt, user.updatedAt
+        ];
+        
+        return await this.run(query, params);
+    }
+
+    async getUser(userId) {
+        const query = `SELECT * FROM users WHERE id = ?`;
+        const row = await this.get(query, [userId]);
+        return row ? this.rowToUser(row) : null;
+    }
+
+    async getUserByUsernameOrEmail(username, email) {
+        const query = `SELECT * FROM users WHERE username = ? OR email = ?`;
+        const row = await this.get(query, [username, email]);
+        return row ? this.rowToUser(row) : null;
+    }
+
+    async updateUser(user) {
+        const query = `
+            UPDATE users 
+            SET username = ?, email = ?, password_hash = ?, is_active = ?, 
+                updated_at = ?, last_login_at = ?
+            WHERE id = ?
+        `;
+        const params = [
+            user.username, user.email, user.passwordHash, user.isActive ? 1 : 0,
+            user.updatedAt, user.lastLoginAt, user.id
+        ];
+        
+        return await this.run(query, params);
+    }
+
+    rowToUser(row) {
+        const User = require('../models/User');
+        return new User({
+            id: row.id,
+            username: row.username,
+            email: row.email,
+            passwordHash: row.password_hash,
+            isActive: !!row.is_active,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            lastLoginAt: row.last_login_at
+        });
+    }
+
+    // User-specific database initialization
+    async initializeUserDatabase(userId) {
+        // Create user-specific data directory
+        const userDataDir = `./data/users/${userId}`;
+        if (!fs.existsSync(userDataDir)) {
+            fs.mkdirSync(userDataDir, { recursive: true });
+        }
+
+        // Initialize default categories for the user
+        await this.initializeDefaultCategories();
+    }
+
+    // Method to get user-specific database path
+    getUserDatabasePath(userId) {
+        return `./data/users/${userId}/timetracker.db`;
+    }
+
+    // Method to switch context to a specific user's database
+    async switchToUserDatabase(userId) {
+        if (this.currentUserId === userId && this.db) {
+            return; // Already connected to this user's database
+        }
+
+        // Close current connection if exists
+        if (this.db) {
+            await this.close();
+        }
+
+        // Connect to user-specific database
+        this.currentUserId = userId;
+        this.dbPath = this.getUserDatabasePath(userId);
+        this.ensureDataDirectory();
+        
+        return new Promise((resolve, reject) => {
+            this.db = new sqlite3.Database(this.dbPath, async (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    try {
+                        await this.initializeTables();
+                        resolve();
+                    } catch (initErr) {
+                        reject(initErr);
+                    }
                 }
             });
         });
