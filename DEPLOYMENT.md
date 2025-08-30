@@ -2,19 +2,25 @@
 
 ## Simple Deployment (Recommended)
 
-For most users, use the automated deployment script:
-
+### With Domain Name (Full SSL Setup)
 ```bash
 git clone <repo-url> timetracker
 cd timetracker
 ./deploy.sh yourdomain.com your-email@example.com
 ```
-
-This automatically:
 - Installs Node.js, PM2, Nginx, Certbot
-- Sets up SSL certificates
-- Configures firewall and security
-- Creates management commands
+- Sets up SSL certificates 
+- Access: https://yourdomain.com
+
+### IP Address Only (No SSL)
+```bash
+git clone <repo-url> timetracker
+cd timetracker
+./deploy.sh    # Defaults to IP-only setup
+```
+- Installs Node.js, PM2 (skips Nginx/SSL)
+- Access: http://your-server-ip:3000
+- Perfect when you don't have a domain yet
 
 ## Local Development
 

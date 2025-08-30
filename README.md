@@ -26,13 +26,21 @@ cd timetracker
 ```
 
 ### Server Deployment
+
+**With Domain (SSL + Nginx):**
 ```bash
-# Simple one-script deployment
 git clone <repo-url> timetracker
 cd timetracker
 ./deploy.sh yourdomain.com your-email@example.com
-
 # Access: https://yourdomain.com
+```
+
+**IP Only (No SSL):**
+```bash
+git clone <repo-url> timetracker
+cd timetracker
+./deploy.sh    # or ./deploy.sh 192.168.1.100
+# Access: http://your-server-ip:3000
 ```
 
 ## Usage

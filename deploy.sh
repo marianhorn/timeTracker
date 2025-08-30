@@ -393,7 +393,7 @@ main() {
 }
 
 # Parse command line arguments
-case "${1:-help}" in
+case "${1}" in
     --help|-h|help)
         echo "Usage: $0 [domain] [email]"
         echo ""
