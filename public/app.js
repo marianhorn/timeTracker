@@ -11,7 +11,7 @@ class TimeTrackerApp {
         this.charts = {};
         this.lastUpdate = null;
         this.currentPeriod = 'week';
-        this.currentChartGrouping = 'day';
+        this.currentChartGrouping = 'day'; // Will be set correctly in loadAnalytics
         
         this.init();
     }
@@ -642,11 +642,24 @@ class TimeTrackerApp {
         try {
             const summary = await this.apiCall('/analytics/summary');
             
-            // Update today's stats
-            document.getElementById('todayTime').textContent = this.formatTime(summary.today.time);
-            document.getElementById('todayTasks').textContent = summary.today.tasksCompleted;
-            document.getElementById('weekTime').textContent = this.formatTime(summary.week.totalTime);
-            document.getElementById('productivityScore').textContent = Math.round(summary.today.productivityScore);
+            // Update today's stats with null checks
+            const todayTimeEl = document.getElementById('todayTime');
+            const todayTasksEl = document.getElementById('todayTasks');
+            const weekTimeEl = document.getElementById('weekTime');
+            const productivityScoreEl = document.getElementById('productivityScore');
+            
+            if (todayTimeEl && summary.today) {
+                todayTimeEl.textContent = this.formatTime(summary.today.time || 0);
+            }
+            if (todayTasksEl && summary.today) {
+                todayTasksEl.textContent = summary.today.tasksCompleted || 0;
+            }
+            if (weekTimeEl && summary.week) {
+                weekTimeEl.textContent = this.formatTime(summary.week.totalTime || 0);
+            }
+            if (productivityScoreEl && summary.today) {
+                productivityScoreEl.textContent = Math.round(summary.today.productivityScore || 0);
+            }
             
         } catch (error) {
             console.error('Failed to load summary:', error);
@@ -655,14 +668,33 @@ class TimeTrackerApp {
 
     async loadAnalytics() {
         try {
+            // Ensure chart grouping is optimal for current period
+            this.currentChartGrouping = this.getOptimalChartGrouping(this.currentPeriod);
+            this.updateGroupingDisplay();
+            
             // Load data based on current period and grouping
             const trends = await this.apiCall(`/analytics/time-trends-enhanced?period=${this.currentChartGrouping}&duration=${this.currentPeriod}`);
             const summary = await this.apiCall(`/analytics/summary?period=${this.currentPeriod}`);
             
-            // Update summary cards
-            document.getElementById('periodTime').textContent = this.formatTime(summary.period.totalTime);
-            document.getElementById('periodTimeLabel').textContent = this.getPeriodLabel(this.currentPeriod);
-            document.getElementById('productivityScore').textContent = summary.period.averageProductivity;
+            // Update summary cards with null checks
+            const periodTimeEl = document.getElementById('periodTime');
+            const periodTimeLabelEl = document.getElementById('periodTimeLabel');
+            const productivityScoreEl = document.getElementById('productivityScore');
+            
+            if (periodTimeEl && summary && summary.week) {
+                periodTimeEl.textContent = this.formatTime(summary.week.totalTime || 0);
+            } else if (periodTimeEl && trends) {
+                // Fallback to trends data
+                periodTimeEl.textContent = this.formatTime(trends.totalTime || 0);
+            }
+            
+            if (periodTimeLabelEl) {
+                periodTimeLabelEl.textContent = this.getPeriodLabel(this.currentPeriod);
+            }
+            
+            if (productivityScoreEl && summary && summary.week) {
+                productivityScoreEl.textContent = Math.round(summary.week.averageProductivity || 0);
+            }
             
             // Update charts
             this.renderTimeChart(trends.timeByPeriod, trends.period);
@@ -686,13 +718,49 @@ class TimeTrackerApp {
         }
     }
 
-    async updateAnalyticsPeriod() {
-        this.currentPeriod = document.getElementById('periodSelect').value;
-        await this.loadAnalytics();
+    getOptimalChartGrouping(period) {
+        // Automatically determine the best chart grouping based on time period
+        switch (period) {
+            case 'week':
+                return 'day';     // Last week → group by day
+            case 'month':
+                return 'day';     // Last month → group by day  
+            case 'year':
+                return 'month';   // Last year → group by month
+            case 'all':
+                return 'month';   // All time → group by month (could be year for very long periods)
+            default:
+                return 'day';
+        }
     }
 
-    async updateChartGrouping() {
-        this.currentChartGrouping = document.getElementById('chartGrouping').value;
+    getGroupingLabel(grouping) {
+        switch (grouping) {
+            case 'day':
+                return 'Daily';
+            case 'week':
+                return 'Weekly';
+            case 'month':
+                return 'Monthly';
+            case 'year':
+                return 'Yearly';
+            default:
+                return 'Daily';
+        }
+    }
+
+    updateGroupingDisplay() {
+        const groupingSpan = document.getElementById('currentGrouping');
+        if (groupingSpan) {
+            groupingSpan.textContent = this.getGroupingLabel(this.currentChartGrouping);
+        }
+    }
+
+    async updateAnalyticsPeriod() {
+        this.currentPeriod = document.getElementById('periodSelect').value;
+        // Automatically set the optimal chart grouping
+        this.currentChartGrouping = this.getOptimalChartGrouping(this.currentPeriod);
+        this.updateGroupingDisplay();
         await this.loadAnalytics();
     }
 
@@ -753,11 +821,57 @@ class TimeTrackerApp {
     }
 
     renderTimeChart(data, period = 'day') {
-        const ctx = document.getElementById('timeChart').getContext('2d');
-        
-        if (this.charts.timeChart) {
-            this.charts.timeChart.destroy();
-        }
+        try {
+            const canvas = document.getElementById('timeChart');
+            if (!canvas) {
+                console.error('timeChart canvas not found');
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Could not get 2d context for timeChart');
+                return;
+            }
+            
+            if (this.charts.timeChart) {
+                this.charts.timeChart.destroy();
+            }
+            
+            if (!data || data.length === 0) {
+                console.warn('No data provided for time chart');
+                // Hide canvas and show empty state message
+                canvas.style.display = 'none';
+                let emptyMessage = canvas.parentElement.querySelector('.chart-empty-state');
+                if (!emptyMessage) {
+                    emptyMessage = document.createElement('div');
+                    emptyMessage.className = 'chart-empty-state text-muted';
+                    canvas.parentElement.appendChild(emptyMessage);
+                }
+                // Create informative message based on current period
+                const periodLabel = this.getPeriodLabel(this.currentPeriod).toLowerCase();
+                emptyMessage.innerHTML = `
+                    <div class="empty-chart-content">
+                        <i class="fas fa-chart-line" style="font-size: 2rem; opacity: 0.3; margin-bottom: 1rem;"></i>
+                        <p><strong>No time tracking data for ${periodLabel}</strong></p>
+                        <p>Start tracking time on your tasks to see productivity charts and trends.</p>
+                    </div>
+                `;
+                emptyMessage.style.display = 'block';
+                return;
+            } else {
+                // Show canvas and hide empty state message
+                canvas.style.display = 'block';
+                const emptyMessage = canvas.parentElement.querySelector('.chart-empty-state');
+                if (emptyMessage) {
+                    emptyMessage.style.display = 'none';
+                }
+            }
+            
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js library not loaded');
+                return;
+            }
         
         // Update chart title based on grouping
         const title = document.getElementById('timeChartTitle');
@@ -832,13 +946,19 @@ class TimeTrackerApp {
                 }
             }
         });
+        } catch (error) {
+            console.error('Error rendering time chart:', error);
+        }
     }
 
     renderDetailedStats(summary) {
         const container = document.getElementById('detailedStats');
+        if (!container) return;
         
-        const totalHours = Math.floor(summary.period.totalTime / 60);
-        const totalMinutes = summary.period.totalTime % 60;
+        // Handle missing or incomplete summary data
+        const totalTime = (summary && summary.week && summary.week.totalTime) || 0;
+        const totalHours = Math.floor(totalTime / 60);
+        const totalMinutes = totalTime % 60;
         
         container.innerHTML = `
             <div class="detailed-stats-grid">
@@ -851,15 +971,15 @@ class TimeTrackerApp {
                         </tr>
                         <tr>
                             <td>Tasks Completed:</td>
-                            <td class="stat-highlight">${summary.period.tasksCompleted}</td>
+                            <td class="stat-highlight">${(summary && summary.week && summary.week.tasksCompleted) || 0}</td>
                         </tr>
                         <tr>
                             <td>Average Productivity:</td>
-                            <td class="stat-highlight">${summary.period.averageProductivity}/100</td>
+                            <td class="stat-highlight">${Math.round((summary && summary.week && summary.week.averageProductivity) || 0)}/100</td>
                         </tr>
                         <tr>
                             <td>Active Tasks:</td>
-                            <td class="stat-highlight">${summary.overall.inProgressTasks}</td>
+                            <td class="stat-highlight">${(summary && summary.overall && summary.overall.inProgressTasks) || 0}</td>
                         </tr>
                     </table>
                 </div>
@@ -867,7 +987,7 @@ class TimeTrackerApp {
                 <div class="stat-item">
                     <h4>Category Breakdown</h4>
                     <table class="detailed-stats-table">
-                        ${Object.entries(summary.period.categoryBreakdown).map(([category, time]) => {
+                        ${Object.entries((summary && summary.week && summary.week.categoryBreakdown) || {}).map(([category, time]) => {
                             const hours = Math.floor(time / 60);
                             const minutes = time % 60;
                             return `
@@ -884,11 +1004,57 @@ class TimeTrackerApp {
     }
 
     renderCategoryChart(data) {
-        const ctx = document.getElementById('categoryChart').getContext('2d');
-        
-        if (this.charts.categoryChart) {
-            this.charts.categoryChart.destroy();
-        }
+        try {
+            const canvas = document.getElementById('categoryChart');
+            if (!canvas) {
+                console.error('categoryChart canvas not found');
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Could not get 2d context for categoryChart');
+                return;
+            }
+            
+            if (this.charts.categoryChart) {
+                this.charts.categoryChart.destroy();
+            }
+            
+            if (!data || Object.keys(data).length === 0) {
+                console.warn('No data provided for category chart');
+                // Hide canvas and show empty state message
+                canvas.style.display = 'none';
+                let emptyMessage = canvas.parentElement.querySelector('.chart-empty-state');
+                if (!emptyMessage) {
+                    emptyMessage = document.createElement('div');
+                    emptyMessage.className = 'chart-empty-state text-muted';
+                    canvas.parentElement.appendChild(emptyMessage);
+                }
+                // Create informative message based on current period
+                const periodLabel = this.getPeriodLabel(this.currentPeriod).toLowerCase();
+                emptyMessage.innerHTML = `
+                    <div class="empty-chart-content">
+                        <i class="fas fa-chart-pie" style="font-size: 2rem; opacity: 0.3; margin-bottom: 1rem;"></i>
+                        <p><strong>No category data for ${periodLabel}</strong></p>
+                        <p>Track time on tasks with different categories to see breakdowns here.</p>
+                    </div>
+                `;
+                emptyMessage.style.display = 'block';
+                return;
+            } else {
+                // Show canvas and hide empty state message
+                canvas.style.display = 'block';
+                const emptyMessage = canvas.parentElement.querySelector('.chart-empty-state');
+                if (emptyMessage) {
+                    emptyMessage.style.display = 'none';
+                }
+            }
+            
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js library not loaded');
+                return;
+            }
         
         const colors = [
             '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
@@ -922,6 +1088,9 @@ class TimeTrackerApp {
                 }
             }
         });
+        } catch (error) {
+            console.error('Error rendering category chart:', error);
+        }
     }
 
     async loadDailyLog() {

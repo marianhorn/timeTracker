@@ -224,12 +224,10 @@
                                 </select>
                             </div>
                             <div class="control-group">
-                                <label for="chartGrouping">Chart Grouping:</label>
-                                <select id="chartGrouping" onchange="app.updateChartGrouping()">
-                                    <option value="day">Daily</option>
-                                    <option value="week">Weekly</option>
-                                    <option value="month">Monthly</option>
-                                </select>
+                                <span class="chart-grouping-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    Chart grouping: <span id="currentGrouping">Daily</span>
+                                </span>
                             </div>
                             <div class="control-group">
                                 <label>Export Data:</label>
@@ -295,6 +293,60 @@
                     <div class="chart-card">
                         <h3>Category Breakdown</h3>
                         <canvas id="categoryChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Productivity Score Explanation -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-info-circle"></i> Understanding Your Productivity Score</h2>
+                        <button class="btn btn-collapse" onclick="toggleCard(this)">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="card-content collapsed">
+                        <div class="productivity-explanation">
+                            <div class="explanation-section">
+                                <h4>📊 How It's Calculated</h4>
+                                <p>Your productivity score is calculated using a simple formula that combines task completion and time worked:</p>
+                                <div class="formula-box">
+                                    <strong>Score = (Tasks Completed × 10) + (Hours Worked × 5)</strong>
+                                    <small>Maximum 8 hours counted per day</small>
+                                </div>
+                            </div>
+                            
+                            <div class="explanation-section">
+                                <h4>🎯 Score Ranges</h4>
+                                <div class="score-ranges">
+                                    <div class="score-range excellent">
+                                        <span class="range-label">80-120+</span>
+                                        <span class="range-desc">Excellent - High task completion with substantial work time</span>
+                                    </div>
+                                    <div class="score-range good">
+                                        <span class="range-label">40-79</span>
+                                        <span class="range-desc">Good - Balanced productivity with moderate progress</span>
+                                    </div>
+                                    <div class="score-range fair">
+                                        <span class="range-label">10-39</span>
+                                        <span class="range-desc">Fair - Some progress made, room for improvement</span>
+                                    </div>
+                                    <div class="score-range low">
+                                        <span class="range-label">0-9</span>
+                                        <span class="range-desc">Low - Minimal activity, consider increasing focus</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="explanation-section">
+                                <h4>💡 Tips to Improve</h4>
+                                <ul class="improvement-tips">
+                                    <li><strong>Complete more tasks:</strong> Break large tasks into smaller, achievable subtasks</li>
+                                    <li><strong>Track consistently:</strong> Use the time tracker regularly for all work sessions</li>
+                                    <li><strong>Focus on quality:</strong> Completing tasks is weighted more heavily than just time</li>
+                                    <li><strong>Set realistic goals:</strong> Aim for 40-60 points daily for sustainable productivity</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
