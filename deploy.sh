@@ -318,14 +318,32 @@ configure_firewall() {
     
     log "Configuring firewall..."
     
-    # Enable UFW if not already enabled
-    if ! sudo ufw status | grep -q "Status: active"; then
-        sudo ufw --force enable
-    fi
+    detect_distro
     
-    # Allow necessary ports
-    sudo ufw allow ssh
-    sudo ufw allow 'Nginx Full'
+    if [[ "$DISTRO" == "ubuntu" ]] || [[ "$DISTRO" == "debian" ]]; then
+        # Ubuntu/Debian - use ufw
+        if ! sudo ufw status | grep -q "Status: active"; then
+            sudo ufw --force enable
+        fi
+        sudo ufw allow ssh
+        sudo ufw allow 'Nginx Full'
+    else
+        # RHEL/CentOS/Oracle Linux - use firewalld
+        if ! sudo systemctl is-active --quiet firewalld; then
+            sudo systemctl start firewalld
+            sudo systemctl enable firewalld
+        fi
+        
+        # Allow SSH (should already be open)
+        sudo firewall-cmd --permanent --add-service=ssh
+        
+        # Allow HTTP and HTTPS
+        sudo firewall-cmd --permanent --add-service=http
+        sudo firewall-cmd --permanent --add-service=https
+        
+        # Reload firewall
+        sudo firewall-cmd --reload
+    fi
     
     success "Firewall configured"
 }
