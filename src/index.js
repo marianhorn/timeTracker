@@ -65,18 +65,24 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Global variables for shutdown handling
+let mainDatabase, userDatabase, timeTracker;
+
 async function initializeApp() {
     try {
         // Initialize main database (for users and authentication)
-        const mainDatabase = new Database();
+        mainDatabase = new Database();
         await mainDatabase.connect();
 
         // Initialize user database handler (for switching user databases)
-        const userDatabase = new Database();
+        userDatabase = new Database();
         await userDatabase.connect();
 
         // Initialize authentication service with main database (never switches)
         const authService = new AuthService(mainDatabase);
+
+        // Initialize time tracker (for shutdown handling)
+        timeTracker = new TimeTracker(userDatabase);
 
         // Make services available to routes
         app.locals.database = userDatabase;  // This one switches for user operations
@@ -152,19 +158,20 @@ async function initializeApp() {
             
             // Save stopped entries to database
             for (const entry of stoppedEntries) {
-                await database.createTimeEntry(entry);
+                await userDatabase.createTimeEntry(entry);
                 
                 // Update task time
-                const task = await database.getTask(entry.taskId);
+                const task = await userDatabase.getTask(entry.taskId);
                 if (task) {
                     task.actualTime = (task.actualTime || 0) + entry.duration;
                     task.updatedAt = new Date().toISOString();
-                    await database.updateTask(task);
+                    await userDatabase.updateTask(task);
                 }
             }
             
-            // Close database connection
-            await database.close();
+            // Close database connections
+            if (userDatabase) await userDatabase.close();
+            if (mainDatabase) await mainDatabase.close();
             console.log('Database connection closed');
             
             process.exit(0);
