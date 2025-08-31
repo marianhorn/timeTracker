@@ -361,6 +361,9 @@ class Database {
             entry.createdAt, entry.updatedAt
         ];
         
+        console.log('Database: Creating time entry with params:', params);
+        console.log('Database: entry.endTime is:', entry.endTime, 'type:', typeof entry.endTime);
+        
         return await this.run(query, params);
     }
 
@@ -372,6 +375,30 @@ class Database {
     async getTimeEntriesByDate(date) {
         const query = `SELECT * FROM time_entries WHERE date = ? ORDER BY start_time`;
         return await this.all(query, [date]);
+    }
+
+    async getActiveTimeEntries() {
+        const query = `
+            SELECT te.*, t.title as task_title, t.category 
+            FROM time_entries te 
+            LEFT JOIN tasks t ON te.task_id = t.id 
+            WHERE te.end_time IS NULL 
+            ORDER BY te.start_time DESC
+        `;
+        console.log('Database: Querying active time entries with query:', query);
+        console.log('Database: Current database path:', this.dbPath);
+        console.log('Database: Current user ID:', this.currentUserId);
+        const results = await this.all(query);
+        console.log('Database: Found active time entries:', results.length, results);
+        return results;
+    }
+
+    async getActiveTaskId() {
+        const query = `SELECT task_id FROM time_entries WHERE end_time IS NULL LIMIT 1`;
+        console.log('Database: Querying active task ID with query:', query);
+        const result = await this.get(query);
+        console.log('Database: Active task ID result:', result);
+        return result ? result.task_id : null;
     }
 
     // Daily log operations

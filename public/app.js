@@ -84,6 +84,55 @@ class TimeTrackerApp {
         // Daily log date picker
         document.getElementById('logDate').addEventListener('change', () => this.loadDailyLog());
 
+        // Logout button
+        document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+
+        // Event delegation for task action buttons
+        document.body.addEventListener('click', (e) => {
+            const button = e.target.closest('[data-action]');
+            if (!button) return;
+            
+            const action = button.dataset.action;
+            const taskId = button.dataset.taskId;
+            
+            if (!taskId) return;
+            
+            e.preventDefault();
+            
+            switch (action) {
+                case 'start':
+                    this.startTask(taskId);
+                    break;
+                case 'stop':
+                    this.stopTask(taskId);
+                    break;
+                case 'complete':
+                    this.updateTaskStatus(taskId, 'completed');
+                    break;
+                case 'reopen':
+                    this.updateTaskStatus(taskId, 'todo');
+                    break;
+                case 'add-subtask':
+                    this.showSubtaskForm(taskId);
+                    break;
+                case 'cancel-subtask':
+                    this.cancelSubtask(taskId);
+                    break;
+                case 'details':
+                    this.showTaskDetails(taskId);
+                    break;
+                case 'delete':
+                    this.deleteTask(taskId);
+                    break;
+                case 'edit-category':
+                    this.editCategory(button.dataset.categoryId);
+                    break;
+                case 'delete-category':
+                    this.deleteCategory(button.dataset.categoryId);
+                    break;
+            }
+        });
+
         // Modal close
         window.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
@@ -129,7 +178,15 @@ class TimeTrackerApp {
                 this.showLoading(true);
             }
             
-            const response = await fetch(`${this.apiBase}${endpoint}`, {
+            const fullUrl = `${this.apiBase}${endpoint}`;
+            console.log('API Call:', options.method || 'GET', fullUrl);
+            console.log('Headers:', {
+                'Content-Type': 'application/json',
+                'Authorization': this.token ? `Bearer ${this.token.substring(0, 20)}...` : 'None',
+                ...options.headers
+            });
+            
+            const response = await fetch(fullUrl, {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.token}`,
@@ -138,20 +195,38 @@ class TimeTrackerApp {
                 ...options
             });
             
+            console.log('API Response status:', response.status, response.statusText);
+            
             if (response.status === 401 || response.status === 403) {
+                console.error('Authentication failed, logging out user');
                 // Token is invalid, logout user
                 this.logout();
                 return;
             }
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorText = await response.text();
+                console.error('API Error Response:', errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
             }
             
-            return options.method === 'DELETE' ? null : await response.json();
+            const result = options.method === 'DELETE' ? null : await response.json();
+            console.log('API Response data:', result);
+            return result;
         } catch (error) {
+            const isModifying = ['POST', 'PUT', 'DELETE'].includes(options.method);
             console.error('API call failed:', error);
-            this.showNotification('API call failed: ' + error.message, 'error');
+            console.error('Error details:', {
+                message: error.message,
+                stack: error.stack,
+                endpoint: endpoint,
+                method: options.method || 'GET'
+            });
+            
+            // Only show user notification for user-initiated actions
+            if (isModifying) {
+                this.showNotification('API call failed: ' + error.message, 'error');
+            }
             throw error;
         } finally {
             // Hide loading indicator
@@ -393,7 +468,7 @@ class TimeTrackerApp {
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
                             <button type="submit" class="btn btn-primary btn-small">Add Subtask</button>
-                            <button type="button" class="btn btn-secondary btn-small" onclick="app.cancelSubtask('${task.id}')">Cancel</button>
+                            <button type="button" class="btn btn-secondary btn-small" data-action="cancel-subtask" data-task-id="${task.id}">Cancel</button>
                         </div>
                     </form>
                 </div>
@@ -414,25 +489,25 @@ class TimeTrackerApp {
         // Time tracking actions
         if (task.status !== 'completed') {
             if (isActive) {
-                actions.push(`<button class="btn btn-error btn-small" onclick="app.stopTask('${task.id}')"><i class="fas fa-stop"></i> Stop Working</button>`);
+                actions.push(`<button class="btn btn-error btn-small" data-action="stop" data-task-id="${task.id}"><i class="fas fa-stop"></i> Stop Working</button>`);
             } else {
-                actions.push(`<button class="btn btn-success btn-small" onclick="app.startTask('${task.id}')"><i class="fas fa-play"></i> Start Working</button>`);
+                actions.push(`<button class="btn btn-success btn-small" data-action="start" data-task-id="${task.id}"><i class="fas fa-play"></i> Start Working</button>`);
             }
         }
 
         // Status actions
         if (task.status !== 'completed') {
-            actions.push(`<button class="btn btn-success btn-small" onclick="app.updateTaskStatus('${task.id}', 'completed')"><i class="fas fa-check"></i> Complete</button>`);
+            actions.push(`<button class="btn btn-success btn-small" data-action="complete" data-task-id="${task.id}"><i class="fas fa-check"></i> Complete</button>`);
         } else if (task.status === 'completed') {
-            actions.push(`<button class="btn btn-secondary btn-small" onclick="app.updateTaskStatus('${task.id}', 'todo')"><i class="fas fa-undo"></i> Reopen</button>`);
+            actions.push(`<button class="btn btn-secondary btn-small" data-action="reopen" data-task-id="${task.id}"><i class="fas fa-undo"></i> Reopen</button>`);
         }
 
         // Subtask action
-        actions.push(`<button class="btn btn-primary btn-small" onclick="app.showSubtaskForm('${task.id}')"><i class="fas fa-plus"></i> Add Subtask</button>`);
+        actions.push(`<button class="btn btn-primary btn-small" data-action="add-subtask" data-task-id="${task.id}"><i class="fas fa-plus"></i> Add Subtask</button>`);
 
         // Other actions
-        actions.push(`<button class="btn btn-secondary btn-small" onclick="app.showTaskDetails('${task.id}')"><i class="fas fa-eye"></i> Details</button>`);
-        actions.push(`<button class="btn btn-error btn-small" onclick="app.deleteTask('${task.id}')"><i class="fas fa-trash"></i> Delete</button>`);
+        actions.push(`<button class="btn btn-secondary btn-small" data-action="details" data-task-id="${task.id}"><i class="fas fa-eye"></i> Details</button>`);
+        actions.push(`<button class="btn btn-error btn-small" data-action="delete" data-task-id="${task.id}"><i class="fas fa-trash"></i> Delete</button>`);
 
         return actions.join('');
     }
@@ -509,17 +584,35 @@ class TimeTrackerApp {
 
     async startTask(taskId) {
         try {
-            await this.apiCall(`/tasks/${taskId}/start`, { method: 'POST' });
+            console.log('Starting task:', taskId);
+            console.log('Auth token present:', !!this.token);
+            console.log('API Base:', this.apiBase);
+            
+            const result = await this.apiCall(`/tasks/${taskId}/start`, { method: 'POST' });
+            console.log('Start task result:', result);
+            
+            if (!result) {
+                throw new Error('No response from server');
+            }
+            
+            // Force a brief delay to ensure backend processing completes
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             // Immediately update all relevant views
+            console.log('Updating views after task start...');
             await Promise.all([
                 this.loadTasks(),
                 this.updateActiveTimer(),
                 this.loadSummary(),
                 this.currentTab === 'deadlines' ? this.loadDeadlines() : Promise.resolve()
             ]);
+            console.log('Views updated successfully');
+            
             this.showNotification('Time tracking started!', 'success');
         } catch (error) {
-            this.showNotification('Failed to start time tracking', 'error');
+            console.error('Start task error:', error);
+            console.error('Error stack:', error.stack);
+            this.showNotification('Failed to start time tracking: ' + error.message, 'error');
         }
     }
 
@@ -581,24 +674,47 @@ class TimeTrackerApp {
 
     async updateActiveTimer() {
         try {
+            console.log('Updating active timer...');
+            
             const deadlineData = await this.apiCall('/analytics/deadlines');
-            this.activeTaskId = deadlineData.activeTaskId;
+            console.log('Deadline data:', deadlineData);
+            
+            if (deadlineData && typeof deadlineData.activeTaskId !== 'undefined') {
+                this.activeTaskId = deadlineData.activeTaskId;
+            }
             
             const activeEntries = await this.apiCall('/analytics/active');
+            console.log('Active entries:', activeEntries);
+            
             const timerElement = document.getElementById('activeTimer');
             const timerText = document.getElementById('timerText');
+            console.log('Timer elements found:', {timerElement: !!timerElement, timerText: !!timerText});
             
-            if (activeEntries.length > 0) {
+            if (!timerElement || !timerText) {
+                console.error('Timer elements not found in DOM');
+                return;
+            }
+            
+            if (activeEntries && Array.isArray(activeEntries) && activeEntries.length > 0) {
                 const entry = activeEntries[0]; // Show first active entry
+                console.log('Showing active entry:', entry);
+                console.log('Entry duration:', entry.duration, 'formatted:', this.formatTime(entry.duration || 0));
+                
                 timerElement.style.display = 'flex';
-                timerText.textContent = this.formatTime(entry.duration);
+                timerText.textContent = this.formatTime(entry.duration || 0);
+                this.activeTaskId = entry.taskId || entry.task_id;
+                
+                console.log('Timer updated - display: flex, text:', timerText.textContent);
             } else {
+                console.log('No active entries, hiding timer');
                 timerElement.style.display = 'none';
                 this.activeTaskId = null;
+                console.log('Timer updated - display: none');
             }
             
             // Re-render tasks if they're currently displayed
             if (this.currentTab === 'tasks' && this.tasks.length > 0) {
+                console.log('Re-rendering tasks with updated timer state');
                 await this.renderTasks();
             }
         } catch (error) {
@@ -663,11 +779,11 @@ class TimeTrackerApp {
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     ${task.status !== 'completed' ? (
                         isActive 
-                            ? `<button class="btn btn-error btn-small" onclick="app.stopTask('${task.id}')"><i class="fas fa-stop"></i></button>`
-                            : `<button class="btn btn-success btn-small" onclick="app.startTask('${task.id}')"><i class="fas fa-play"></i></button>`
+                            ? `<button class="btn btn-error btn-small" data-action="stop" data-task-id="${task.id}"><i class="fas fa-stop"></i></button>`
+                            : `<button class="btn btn-success btn-small" data-action="start" data-task-id="${task.id}"><i class="fas fa-play"></i></button>`
                     ) : ''}
                     ${task.status !== 'completed' 
-                        ? `<button class="btn btn-success btn-small" onclick="app.updateTaskStatus('${task.id}', 'completed')"><i class="fas fa-check"></i></button>`
+                        ? `<button class="btn btn-success btn-small" data-action="complete" data-task-id="${task.id}"><i class="fas fa-check"></i></button>`
                         : `<span class="text-success"><i class="fas fa-check-circle"></i></span>`
                     }
                 </div>
@@ -1421,10 +1537,10 @@ class TimeTrackerApp {
                 </div>
                 <div class="category-actions">
                     ${!category.isDefault ? `
-                        <button class="btn-category edit" onclick="app.editCategory('${category.id}')">
+                        <button class="btn-category edit" data-action="edit-category" data-category-id="${category.id}">
                             <i class="fas fa-edit"></i> Edit
                         </button>
-                        <button class="btn-category delete" onclick="app.deleteCategory('${category.id}')">
+                        <button class="btn-category delete" data-action="delete-category" data-category-id="${category.id}">
                             <i class="fas fa-trash"></i> Delete
                         </button>
                     ` : `

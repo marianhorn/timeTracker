@@ -79,7 +79,7 @@ class TaskService {
             throw new Error('Task not found');
         }
 
-        return this.timeTracker.startTracking(taskId, description);
+        return await this.timeTracker.startTracking(taskId, description);
     }
 
     async pauseTimeTracking(taskId) {
@@ -91,11 +91,11 @@ class TaskService {
     }
 
     async stopTimeTracking(taskId) {
-        const timeEntry = this.timeTracker.stopTracking(taskId);
+        const timeEntry = await this.timeTracker.stopTracking(taskId);
         
         if (timeEntry) {
-            // Save time entry to database
-            await this.db.createTimeEntry(timeEntry);
+            // Time entry is already saved to database in stopTracking method
+            // No need to call createTimeEntry again
             
             // Update task's actual time and propagate to parents
             await this.updateTaskTimeAndPropagate(taskId, timeEntry.duration);
@@ -126,7 +126,27 @@ class TaskService {
     }
 
     async getActiveTimeEntries() {
-        return this.timeTracker.getAllActiveEntries();
+        const dbEntries = await this.db.getActiveTimeEntries();
+        // Convert database entries to the expected format with calculated duration
+        return dbEntries.map(entry => {
+            const startTime = new Date(entry.start_time);
+            const now = new Date();
+            const currentDuration = Math.floor((now - startTime) / 1000 / 60); // minutes
+            
+            return {
+                id: entry.id,
+                taskId: entry.task_id,
+                taskTitle: entry.task_title,
+                category: entry.category,
+                startTime: entry.start_time,
+                endTime: entry.end_time,
+                duration: currentDuration,
+                description: entry.description,
+                date: entry.date,
+                isPaused: entry.is_paused,
+                pausedDuration: entry.paused_duration
+            };
+        });
     }
 
     async getTimeEntriesByTask(taskId) {
@@ -239,7 +259,7 @@ class TaskService {
     }
 
     async getActiveTaskId() {
-        return this.timeTracker.getActiveTaskId();
+        return await this.db.getActiveTaskId();
     }
 
     async getProductivityStats(startDate, endDate, period = 'day') {

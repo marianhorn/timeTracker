@@ -3,12 +3,13 @@ const Task = require('../models/Task');
 const DailyLog = require('../models/DailyLog');
 
 class TimeTracker {
-    constructor() {
+    constructor(database) {
+        this.db = database;
         this.activeTimeEntries = new Map(); // taskId -> TimeEntry
         this.onTimeUpdate = null; // callback for time updates
     }
 
-    startTracking(taskId, description = '') {
+    async startTracking(taskId, description = '') {
         // Stop ALL existing tracking (only one active session allowed)
         this.stopAllTracking();
 
@@ -17,6 +18,10 @@ class TimeTracker {
             description,
             startTime: new Date().toISOString()
         });
+
+        // Immediately write to database for multi-user persistence
+        await this.db.createTimeEntry(timeEntry);
+        console.log('TimeTracker: Created database entry for task:', taskId);
 
         this.activeTimeEntries.set(taskId, timeEntry);
         
@@ -46,12 +51,19 @@ class TimeTracker {
         return null;
     }
 
-    stopTracking(taskId) {
+    async stopTracking(taskId) {
         const timeEntry = this.activeTimeEntries.get(taskId);
         if (timeEntry) {
             timeEntry.stop();
             this.stopTimer(taskId);
             this.activeTimeEntries.delete(taskId);
+            
+            // Update database with end_time and final duration
+            await this.db.run(
+                'UPDATE time_entries SET end_time = ?, duration = ?, updated_at = ? WHERE id = ?',
+                [timeEntry.endTime, timeEntry.duration, new Date().toISOString(), timeEntry.id]
+            );
+            console.log('TimeTracker: Updated database entry for stopped task:', taskId);
             
             // Trigger callback if set
             if (this.onTimeUpdate) {

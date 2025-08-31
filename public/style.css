@@ -64,7 +64,7 @@ body {
 }
 
 .btn-logout {
-    background: var(--error);
+    background: var(--error-color);
     color: white;
     border: none;
     padding: 0.5rem 1rem;
