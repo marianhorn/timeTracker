@@ -52,7 +52,37 @@ class TimeTracker {
     }
 
     async stopTracking(taskId) {
-        const timeEntry = this.activeTimeEntries.get(taskId);
+        // First try to get from in-memory cache
+        let timeEntry = this.activeTimeEntries.get(taskId);
+        
+        // If not found in memory, look in database (for multi-user persistence)
+        if (!timeEntry) {
+            console.log('TimeTracker: Entry not found in memory, checking database for task:', taskId);
+            const dbResult = await this.db.get(
+                'SELECT * FROM time_entries WHERE task_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1',
+                [taskId]
+            );
+            
+            if (dbResult) {
+                // Recreate TimeEntry object from database data
+                const TimeEntry = require('../models/TimeEntry');
+                timeEntry = new TimeEntry({
+                    id: dbResult.id,
+                    taskId: dbResult.task_id,
+                    startTime: dbResult.start_time,
+                    endTime: dbResult.end_time,
+                    duration: dbResult.duration,
+                    description: dbResult.description,
+                    date: dbResult.date,
+                    isPaused: dbResult.is_paused,
+                    pausedDuration: dbResult.paused_duration,
+                    createdAt: dbResult.created_at,
+                    updatedAt: dbResult.updated_at
+                });
+                console.log('TimeTracker: Found active entry in database:', timeEntry.id);
+            }
+        }
+        
         if (timeEntry) {
             timeEntry.stop();
             this.stopTimer(taskId);
@@ -63,7 +93,7 @@ class TimeTracker {
                 'UPDATE time_entries SET end_time = ?, duration = ?, updated_at = ? WHERE id = ?',
                 [timeEntry.endTime, timeEntry.duration, new Date().toISOString(), timeEntry.id]
             );
-            console.log('TimeTracker: Updated database entry for stopped task:', taskId);
+            console.log('TimeTracker: Updated database entry for stopped task:', taskId, 'duration:', timeEntry.duration);
             
             // Trigger callback if set
             if (this.onTimeUpdate) {
@@ -72,6 +102,8 @@ class TimeTracker {
             
             return timeEntry;
         }
+        
+        console.log('TimeTracker: No active time tracking found for task:', taskId);
         return null;
     }
 
