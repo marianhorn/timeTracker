@@ -7,6 +7,8 @@ class User {
         this.username = data.username;
         this.email = data.email;
         this.passwordHash = data.passwordHash;
+        this.provider = data.provider || 'local'; // 'local', 'google', 'apple'
+        this.providerId = data.providerId; // OAuth provider user ID
         this.isActive = data.isActive !== undefined ? data.isActive : true;
         this.createdAt = data.createdAt || new Date().toISOString();
         this.updatedAt = data.updatedAt || new Date().toISOString();
@@ -19,6 +21,10 @@ class User {
     }
 
     async validatePassword(password) {
+        // OAuth users don't have passwords
+        if (this.provider !== 'local' || !this.passwordHash) {
+            return false;
+        }
         return await bcrypt.compare(password, this.passwordHash);
     }
 

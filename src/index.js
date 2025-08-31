@@ -3,6 +3,8 @@ const cors = require('cors');
 const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const passport = require('passport');
+const session = require('express-session');
 
 const Database = require('./database/Database');
 const TimeTracker = require('./services/TimeTracker');
@@ -11,6 +13,7 @@ const AuthService = require('./services/AuthService');
 
 // Import routes
 const authRouter = require('./routes/auth');
+const oauthRouter = require('./routes/oauth');
 const tasksRouter = require('./routes/tasks');
 const logsRouter = require('./routes/logs');
 const analyticsRouter = require('./routes/analytics');
@@ -65,6 +68,25 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Session middleware for OAuth
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'fallback-session-secret-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true',
+        maxAge: 10 * 60 * 1000 // 10 minutes (just for OAuth flow)
+    }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Passport serialization (minimal - we use JWT for actual auth)
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser((id, done) => done(null, { id }));
+
 // Global variables for shutdown handling
 let mainDatabase, userDatabase, timeTracker;
 
@@ -91,6 +113,7 @@ async function initializeApp() {
 
         // Public routes (no authentication required)
         app.use('/api/auth', authRouter);
+        app.use('/api/oauth', oauthRouter);
 
         // Protected routes (require authentication and user database switching)
         app.use('/api/tasks', authenticateAndSwitchDB, (req, res, next) => {

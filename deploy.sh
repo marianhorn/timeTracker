@@ -193,17 +193,26 @@ configure_env() {
         # Generate JWT secret
         JWT_SECRET=$(openssl rand -base64 32)
         
+        # Generate session secret for OAuth
+        SESSION_SECRET=$(openssl rand -base64 32)
+        
         # Create .env file
         sudo tee $APP_DIR/.env > /dev/null <<EOF
 NODE_ENV=production
 PORT=3000
 JWT_SECRET=$JWT_SECRET
 JWT_EXPIRES_IN=7d
+SESSION_SECRET=$SESSION_SECRET
 DATA_DIR=./data
 BCRYPT_ROUNDS=12
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=1000
 AUTH_RATE_LIMIT_MAX=5
+
+# OAuth Configuration (Google)
+# To enable Google OAuth, add your credentials:
+# GOOGLE_CLIENT_ID=your_google_client_id_here
+# GOOGLE_CLIENT_SECRET=your_google_client_secret_here
 EOF
 
         if [[ "$DOMAIN" != "localhost" ]]; then
@@ -526,8 +535,16 @@ main() {
     echo ""
     echo "🔐 First Steps:"
     echo "1. Visit your application URL"
-    echo "2. Register a new account"
+    echo "2. Register a new account or setup Google OAuth (see below)"
     echo "3. Start tracking your time!"
+    
+    echo ""
+    echo "🔑 OAuth Setup (Optional):"
+    echo "To enable Google OAuth login:"
+    echo "1. Get credentials from Google Cloud Console"
+    echo "2. Edit $APP_DIR/.env and add your GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"
+    echo "3. Restart: sudo timetracker-restart"
+    echo "4. See OAUTH_SETUP.md for detailed instructions"
     
     if [[ "$DOMAIN" != "localhost" ]]; then
         echo ""

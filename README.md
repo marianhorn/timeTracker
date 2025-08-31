@@ -10,6 +10,7 @@ A hierarchical time tracking system for academic work and thesis management.
 - **Analytics Dashboard** - Charts and reports for productivity analysis
 - **Excel Export** - Professional reports for progress meetings
 - **Multi-user Support** - Login system with isolated user databases
+- **Google OAuth** - Optional Google account authentication
 
 ## Quick Start
 
@@ -45,12 +46,20 @@ cd timetracker
 
 ## Usage
 
-1. **Register/Login** - Create account or login
+1. **Register/Login** - Create account with email/password or Google OAuth
 2. **Create Tasks** - Add tasks with categories, priorities, deadlines  
 3. **Track Time** - Click "Start Working" to begin timing
 4. **Add Subtasks** - Use "Add Subtask" buttons for hierarchy
 5. **View Analytics** - Charts and exports in Analytics tab
 6. **Check Deadlines** - Monitor due dates in Deadlines tab
+
+## Optional: Google OAuth Setup
+
+To enable Google login:
+1. Get credentials from [Google Cloud Console](https://console.cloud.google.com/)
+2. Edit `.env` file and add your `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+3. Restart the application
+4. See `OAUTH_SETUP.md` for detailed instructions
 
 ## Project Structure
 

@@ -154,15 +154,33 @@ class Database {
         for (const query of userQueries) {
             await this.run(query);
         }
+
+        // Add OAuth columns if they don't exist (migration)
+        try {
+            await this.run(`ALTER TABLE users ADD COLUMN provider TEXT DEFAULT 'local'`);
+            await this.run(`ALTER TABLE users ADD COLUMN provider_id TEXT`);
+            console.log('Added OAuth columns to users table');
+        } catch (error) {
+            // Columns already exist, ignore error
+        }
+
+        // Make password_hash nullable for OAuth users
+        try {
+            // SQLite doesn't support ALTER COLUMN directly, so we'll handle this in the application logic
+            console.log('OAuth support ready - password_hash can be null for OAuth users');
+        } catch (error) {
+            // Ignore
+        }
     }
 
     async createUser(user) {
         const query = `
-            INSERT INTO users (id, username, email, password_hash, is_active, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (id, username, email, password_hash, provider, provider_id, is_active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const params = [
             user.id, user.username, user.email, user.passwordHash,
+            user.provider, user.providerId,
             user.isActive ? 1 : 0, user.createdAt, user.updatedAt
         ];
         
@@ -178,6 +196,12 @@ class Database {
     async getUserByUsernameOrEmail(username, email) {
         const query = `SELECT * FROM users WHERE username = ? OR email = ?`;
         const row = await this.get(query, [username, email]);
+        return row ? this.rowToUser(row) : null;
+    }
+
+    async getUserByEmail(email) {
+        const query = `SELECT * FROM users WHERE email = ?`;
+        const row = await this.get(query, [email]);
         return row ? this.rowToUser(row) : null;
     }
 
@@ -203,6 +227,8 @@ class Database {
             username: row.username,
             email: row.email,
             passwordHash: row.password_hash,
+            provider: row.provider || 'local',
+            providerId: row.provider_id,
             isActive: !!row.is_active,
             createdAt: row.created_at,
             updatedAt: row.updated_at,

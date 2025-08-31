@@ -128,6 +128,52 @@ class AuthService {
                 res.status(403).json({ error: 'Invalid or expired token' });
             });
     }
+
+    // OAuth-specific methods
+    async getUserByEmail(email) {
+        try {
+            return await this.db.getUserByEmail(email);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    async createOAuthUser(userData) {
+        // Validate required fields for OAuth users
+        if (!userData.email || !userData.provider || !userData.providerId) {
+            throw new Error('Missing required OAuth user data');
+        }
+
+        // Check if user already exists
+        const existingUser = await this.getUserByEmail(userData.email);
+        if (existingUser) {
+            // Update provider info if user exists
+            existingUser.provider = userData.provider;
+            existingUser.providerId = userData.providerId;
+            await this.db.updateUser(existingUser);
+            return existingUser;
+        }
+
+        // Create new OAuth user
+        const User = require('../models/User');
+        const user = new User({
+            username: userData.username,
+            email: userData.email,
+            password: null, // OAuth users don't have passwords
+            provider: userData.provider,
+            providerId: userData.providerId,
+            isActive: true
+        });
+
+        await this.db.createUser(user);
+        
+        // Create user's database
+        await this.db.initializeUserDatabase(user.id);
+        
+        console.log('Created new OAuth user:', user.email, 'via', user.provider);
+
+        return user;
+    }
 }
 
 module.exports = AuthService;

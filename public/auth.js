@@ -23,6 +23,12 @@ class AuthManager {
             registerForm.addEventListener('submit', (e) => this.handleRegister(e));
         }
 
+        // OAuth buttons
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        if (googleLoginBtn) {
+            googleLoginBtn.addEventListener('click', (e) => this.handleGoogleLogin(e));
+        }
+
         // Form switch links
         const showRegisterLink = document.getElementById('show-register-link');
         if (showRegisterLink) {
@@ -42,12 +48,46 @@ class AuthManager {
     }
 
     async checkExistingAuth() {
-        const token = localStorage.getItem('timeTracker_token');
-        if (token) {
+        // First check for OAuth callback parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const user = urlParams.get('user');
+        const error = urlParams.get('error');
+
+        if (error) {
+            if (error === 'oauth_failed') {
+                this.showError('OAuth login failed. Please try again.');
+            }
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+        }
+
+        if (token && user) {
+            try {
+                const userData = JSON.parse(decodeURIComponent(user));
+                
+                // Store auth data
+                localStorage.setItem('timeTracker_token', token);
+                localStorage.setItem('timeTracker_user', JSON.stringify(userData));
+                
+                // Clean URL and redirect
+                window.history.replaceState({}, document.title, window.location.pathname);
+                window.location.href = '/';
+                return;
+            } catch (error) {
+                console.error('Failed to parse OAuth user data:', error);
+                this.showError('OAuth login failed. Please try again.');
+            }
+        }
+
+        // Check for existing stored token
+        const storedToken = localStorage.getItem('timeTracker_token');
+        if (storedToken) {
             try {
                 const response = await fetch(`${this.apiBase}/auth/me`, {
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${storedToken}`
                     }
                 });
 
@@ -256,6 +296,12 @@ class AuthManager {
     isValidEmail(email) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
+    }
+
+    // OAuth handlers
+    handleGoogleLogin(e) {
+        e.preventDefault();
+        window.location.href = `${this.apiBase}/oauth/google`;
     }
 }
 
