@@ -118,6 +118,9 @@ class TimeTrackerApp {
                 case 'cancel-subtask':
                     this.cancelSubtask(taskId);
                     break;
+                case 'edit':
+                    this.showEditTaskModal(taskId);
+                    break;
                 case 'details':
                     this.showTaskDetails(taskId);
                     break;
@@ -506,6 +509,7 @@ class TimeTrackerApp {
         actions.push(`<button class="btn btn-primary btn-small" data-action="add-subtask" data-task-id="${task.id}"><i class="fas fa-plus"></i> Add Subtask</button>`);
 
         // Other actions
+        actions.push(`<button class="btn btn-secondary btn-small" data-action="edit" data-task-id="${task.id}"><i class="fas fa-pen"></i> Edit</button>`);
         actions.push(`<button class="btn btn-secondary btn-small" data-action="details" data-task-id="${task.id}"><i class="fas fa-eye"></i> Details</button>`);
         actions.push(`<button class="btn btn-error btn-small" data-action="delete" data-task-id="${task.id}"><i class="fas fa-trash"></i> Delete</button>`);
 
@@ -1357,6 +1361,124 @@ class TimeTrackerApp {
         `;
         
         modal.classList.add('show');
+    }
+
+    async showEditTaskModal(taskId) {
+        const task = this.findTaskById(taskId);
+        if (!task) return;
+
+        const modal = document.getElementById('taskModal');
+        const title = document.getElementById('modalTitle');
+        const body = document.getElementById('modalBody');
+        
+        title.textContent = 'Edit Task';
+        
+        // Load categories for dropdown
+        await this.loadCategories();
+        
+        const categoryOptions = this.categories.map(cat => 
+            `<option value="${cat.name}" ${cat.name === task.category ? 'selected' : ''}>${cat.name}</option>`
+        ).join('');
+        
+        body.innerHTML = `
+            <form id="editTaskForm" class="edit-task-form">
+                <div class="form-group">
+                    <label for="editTaskTitle">Title *</label>
+                    <input type="text" id="editTaskTitle" value="${task.title}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editTaskDescription">Description</label>
+                    <textarea id="editTaskDescription" rows="3">${task.description || ''}</textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editTaskCategory">Category</label>
+                        <select id="editTaskCategory">
+                            ${categoryOptions}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editTaskPriority">Priority</label>
+                        <select id="editTaskPriority">
+                            <option value="low" ${task.priority === 'low' ? 'selected' : ''}>Low</option>
+                            <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Medium</option>
+                            <option value="high" ${task.priority === 'high' ? 'selected' : ''}>High</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editTaskStatus">Status</label>
+                        <select id="editTaskStatus">
+                            <option value="todo" ${task.status === 'todo' ? 'selected' : ''}>To Do</option>
+                            <option value="in_progress" ${task.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="completed" ${task.status === 'completed' ? 'selected' : ''}>Completed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editTaskEstimate">Estimated Time (minutes)</label>
+                        <input type="number" id="editTaskEstimate" min="0" value="${task.estimatedTime || ''}">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editTaskDeadline">Deadline</label>
+                    <input type="date" id="editTaskDeadline" value="${task.deadline ? task.deadline.split('T')[0] : ''}">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        `;
+        
+        modal.classList.add('show');
+        
+        // Handle form submission
+        document.getElementById('editTaskForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleEditTaskSubmit(taskId);
+        });
+    }
+
+    async handleEditTaskSubmit(taskId) {
+        try {
+            const formData = {
+                title: document.getElementById('editTaskTitle').value.trim(),
+                description: document.getElementById('editTaskDescription').value.trim(),
+                category: document.getElementById('editTaskCategory').value,
+                priority: document.getElementById('editTaskPriority').value,
+                status: document.getElementById('editTaskStatus').value,
+                estimatedTime: parseInt(document.getElementById('editTaskEstimate').value) || null,
+                deadline: document.getElementById('editTaskDeadline').value || null
+            };
+
+            if (!formData.title) {
+                this.showNotification('Please enter a task title', 'error');
+                return;
+            }
+
+            await this.apiCall(`/tasks/${taskId}`, {
+                method: 'PUT',
+                body: JSON.stringify(formData)
+            });
+
+            this.closeModal();
+            await this.loadTasks();
+            this.showNotification('Task updated successfully!', 'success');
+
+        } catch (error) {
+            console.error('Failed to update task:', error);
+            this.showNotification('Failed to update task', 'error');
+        }
     }
 
     findTaskById(taskId) {

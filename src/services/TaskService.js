@@ -79,6 +79,28 @@ class TaskService {
             throw new Error('Task not found');
         }
 
+        // First, stop all other active time tracking and set their status back to 'todo'
+        const activeEntries = await this.db.getActiveTimeEntries();
+        for (const entry of activeEntries) {
+            if (entry.task_id !== taskId) {
+                console.log('TaskService: Auto-stopping previous task:', entry.task_id);
+                await this.stopTimeTracking(entry.task_id);
+                
+                // Set previous task back to 'todo' if it wasn't completed
+                const previousTask = await this.db.getTask(entry.task_id);
+                if (previousTask && previousTask.status !== 'completed') {
+                    await this.updateTask(entry.task_id, { status: 'todo' });
+                    console.log('TaskService: Set previous task status back to todo:', entry.task_id);
+                }
+            }
+        }
+
+        // Set current task status to 'in_progress'
+        if (task.status !== 'completed') {
+            await this.updateTask(taskId, { status: 'in_progress' });
+            console.log('TaskService: Set task status to in_progress:', taskId);
+        }
+
         return await this.timeTracker.startTracking(taskId, description);
     }
 
@@ -100,8 +122,14 @@ class TaskService {
             // Update task's actual time and propagate to parents
             await this.updateTaskTimeAndPropagate(taskId, timeEntry.duration);
 
-            // Get task for daily log
+            // Get task for daily log and status update
             const task = await this.db.getTask(taskId);
+            
+            // Set task status back to 'todo' if it wasn't completed
+            if (task && task.status === 'in_progress') {
+                await this.updateTask(taskId, { status: 'todo' });
+                console.log('TaskService: Set task status back to todo after stopping:', taskId);
+            }
             
             // Update daily log
             await this.updateDailyLog(timeEntry.date, taskId, task.title, timeEntry.duration);
