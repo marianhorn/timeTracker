@@ -1,5 +1,7 @@
 # Time Tracker
 
+**Live Instance:** https://time-tracker.ddns.net/ *(no warranty for nothing)*
+
 A hierarchical time tracking system for academic work and thesis management.
 
 ## Features
